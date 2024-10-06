@@ -17,6 +17,25 @@ name = "zero2prod"
 actix-web = "4"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
+# Macro that allows extracting of form data from http POST requests
+serde = { version = "1", features = ["derive"] }
+
+# for working with configurations!
+config = "0.14"
+
+# Using table-like toml syntax to avoid a super-long line!
+[dependencies.sqlx]
+version = "0.8"
+default-features = false
+features = [
+"runtime-tokio-rustls", # use tokio for futures
+"macros", # very useful!
+"postgres", # unlocks postgres specific functionality
+"uuid", # uuid integration
+"chrono", # timestampz integration
+"migrate" # migrate like with sqlx-CLI
+]
+
 # for dependencies required for tests only
 [dev-dependencies]
 reqwest = "0.12"
