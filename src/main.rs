@@ -16,7 +16,7 @@ async fn main() -> Result<(), std::io::Error> {
     // create a TcpListener to track which port is assigned for the server to bind
     let listener = TcpListener::bind(address)?;
 
-    println!("Connected to {}", listener.local_addr()?.to_string());
+    println!("Connected to {}", listener.local_addr()?);
 
     // pass any error on with ?
     // await the future here - we can call main as a non-blocking
