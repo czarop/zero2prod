@@ -1,6 +1,8 @@
 use std::net::TcpListener;
+use sqlx::{Connection, PgConnection};
 use zero2prod::configuration::get_configuration;
 use zero2prod::startup;
+use sqlx::PgPool;
 
 #[tokio::main] // a procedural macro that wraps synchronous main() in async fn -
                // otherwise async main not allowed, and this return type not allowed
@@ -19,7 +21,17 @@ async fn main() -> Result<(), std::io::Error> {
     println!("Connected to {}", listener.local_addr()?);
 
     // pass any error on with ?
+
+    // generate a connection to the database with the connection string
+    // we use a pool of possible connections for concurrent queries
+    let connection_pool = PgPool::connect(
+        &configuration.database.connection_string()
+        )
+        .await
+        .expect("Failed to connect to Postgres.");
+
+
     // await the future here - we can call main as a non-blocking
     // task in tests etc
-    startup::run(listener)?.await
+    startup::run(listener, connection_pool)?.await
 }
