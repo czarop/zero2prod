@@ -13,5 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: taiki-e/install-action@cargo-deny
+      - name: Init cargo deny
+        run: cargo deny innit ../deny.toml
       - name: Scan for vulnerabilities
         run: cargo deny check advisories
