@@ -7,8 +7,8 @@ use actix_web::{web, HttpResponse, Responder};
 #[derive(serde::Deserialize)] // this automatically implements deserialise for the specified struct!
                               // which allows the http req to be parsed into the struct
 pub struct FormData {
-    email: String,
-    name: String,
+    _email: String,
+    _name: String,
 }
 // and the handler itself - it must accept a web::Form<FormData> - ie the struct above
 // All arguments in the signature of a route handler must implement the
