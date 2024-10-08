@@ -21,14 +21,27 @@ pub struct FormData {
 
 // connection is an extractor - it extracts from the app_data() call in startup() - and finds an
 // instance of the specified type (which we passed)
-pub async fn subscribe(form: web::Form<FormData>, connection_pool: web::Data<PgPool>) -> impl Responder {
+pub async fn subscribe(
+    form: web::Form<FormData>, 
+    connection_pool: web::Data<PgPool>) 
+    -> impl Responder {
+    
+    // a random unique identifier for this request - generate it now for logging purposes
+    let request_id = Uuid::new_v4();
+
+    // log entry
+    log::info!("Req. ID '{}': Adding '{}', '{}' as a new subscriber", 
+        request_id,
+        form.email, 
+        form.name); // not that logging this is potentially a data breach in many places
+
     // insert form data to the db with this query
     let query_result = sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at)
         VALUES ($1, $2, $3, $4)
         "#,
-        Uuid::new_v4(), // random id
+        request_id,
         form.email,
         form.name,
         Utc::now() // timestamp
@@ -39,9 +52,15 @@ pub async fn subscribe(form: web::Form<FormData>, connection_pool: web::Data<PgP
         .await;
 
     match query_result{
-        Ok(_) => HttpResponse::Ok().finish(),
+        Ok(_) => {
+            // log entry
+            log::info!("Req. ID '{}': Saved new subscriber successfully!", request_id);
+            HttpResponse::Ok().finish()
+        },
         Err(e) => {
-            println!("Failed to execute query: {}", e);
+            log::info!("Req. ID '{}': Failed to execute query: {:?}", 
+                request_id, 
+                e);
             HttpResponse::InternalServerError().finish()
         }
     }

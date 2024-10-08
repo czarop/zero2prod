@@ -1,3 +1,5 @@
+# for windows, use CLI and just write the docker commands out
+
 #!/usr/bin/env bash
 set -x
 set -eo pipefail
@@ -40,7 +42,10 @@ then
         postgres -N 1000
         # ^ Increased maximum number of connections for testing purposes
 
-    # Wait for Postgres to be ready to accept connections
+    # for windows smth like this, play with the quotation marks
+    #docker run -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=password -p "5432":5432 -n "postgres" postgres -N 1000
+
+    # Wait for Postgres to be ready to accept connections - not required
     until [ \
         "$(docker inspect -f "{{.State.Health.Status}}" ${CONTAINER_NAME})" == \
         "healthy" \
@@ -51,7 +56,9 @@ then
 
 
 
-
+    # for windows:
+    #docker exec -it "postgres" psql -U "postgres" -c "CREATE USER app WITH PASSWORD 'secret';"
+    #docker exec -it "postgres" psql -U "postgres" -c "ALTER USER app CREATEDB;"
 
     # Create the application user
     CREATE_QUERY="CREATE USER ${APP_USER} WITH PASSWORD '${APP_USER_PWD}';"
@@ -66,6 +73,10 @@ fi
 # create the db in sqlx
 DATABASE_URL=postgres://${APP_USER}:${APP_USER_PWD}@localhost:${DB_PORT}/${APP_DB_NAME}
 export DATABASE_URL
+# for windows
+#set postgres://app:secret@localhost:5432/newsletter
+
+# for windows do these in VScode (with migration table.sql file)
 sqlx database create
 sqlx migrate run
 

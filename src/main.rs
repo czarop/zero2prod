@@ -1,14 +1,19 @@
 use std::net::TcpListener;
-use sqlx::{Connection, PgConnection};
-use zero2prod::configuration::get_configuration;
+use zero2prod::configuration;
 use zero2prod::startup;
 use sqlx::PgPool;
+use env_logger::Env;
 
 #[tokio::main] // a procedural macro that wraps synchronous main() in async fn -
                // otherwise async main not allowed, and this return type not allowed
 async fn main() -> Result<(), std::io::Error> {
+
+    // set up error log - this checks an env variable RUST_LOG for setting or default to info
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+
+
     // Panic if we can't read the config file
-    let configuration = get_configuration().expect("Failed to read configuration.yaml");
+    let configuration = configuration::get_configuration().expect("Failed to read configuration.yaml");
     // set the address - including port from config file - this is set to 0 (random port)
     let address = format!("127.0.0.1:{}", configuration.application_port);
 

@@ -6,7 +6,8 @@
 use std::net::TcpListener;
 use actix_web::{dev::Server, web, App, HttpServer};
 use sqlx::PgPool;
-use crate::routes::{greet, health_check, subscribe};
+use crate::routes;
+use actix_web::middleware::Logger;
 
 
 // argument TcpListener allows us to find the port that is assigned
@@ -27,9 +28,10 @@ pub fn run(listener: TcpListener, db_pool : PgPool) -> Result<Server, std::io::E
             // route takes a path (a string) which can have named fields - here
             // anything after the / is termed 'name', which is used in the
             // handler fn - this is called templating, but is not req.
-            .route("/", web::get().to(greet))
-            .route("/health_check", web::get().to(health_check))
-            .route("/subscriptions", web::post().to(subscribe))
+            .wrap(Logger::default()) //we wrap the App in a logger - we need an implementation of the Log Trait to receive - done in main!
+            .route("/", web::get().to(routes::greet))
+            .route("/health_check", web::get().to(routes::health_check))
+            .route("/subscriptions", web::post().to(routes::subscribe))
         //.route("/{name}", web::get().to(greet))
         // note you can chain together commands - if the first is not met it will
         // continue to the second - both path template and guards must be satisfied
