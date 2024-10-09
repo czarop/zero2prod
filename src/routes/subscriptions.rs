@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse, Responder};
-use sqlx::PgPool;
 use chrono::Utc;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 // Http POST Handler ############################################################
@@ -19,51 +19,62 @@ pub struct FormData {
 // work with the extracted data instead of parsing an HttpReq
 // basically it's all taken care of using the struct above and the serde:deserialise macro!
 
-// connection is an extractor - it extracts from the app_data() call in startup() - and finds an
-// instance of the specified type (which we passed)
+// this macro registers everything that happens in the below fn as part of the SPAN
+#[tracing::instrument(
+    name = "Adding a new subscriber",
+    skip(form, connection_pool), // we don't want to log stuff about these variables
+    fields(
+    request_id = %Uuid::new_v4(), // you can use the variable name as a key
+    subscriber_email = %form.email, // or explicitly name them
+    subscriber_name = %form.name // the % - we are telling tracing to use their Display 
+                                // implementation for logging purposes
+    )
+)]
 pub async fn subscribe(
-    form: web::Form<FormData>, 
-    connection_pool: web::Data<PgPool>) 
-    -> impl Responder {
-    
-    // a random unique identifier for this request - generate it now for logging purposes
-    let request_id = Uuid::new_v4();
+    form: web::Form<FormData>,
+    connection_pool: web::Data<PgPool>,
+) -> impl Responder {
+    match insert_subscriber(&connection_pool, &form).await {
+        Ok(_) => {
+            // log entry - we don't need this because of the span
+            //tracing::info!("Req. ID '{}': Saved new subscriber successfully!", request_id);
+            HttpResponse::Ok().finish()
+        }
+        Err(e) => {
+            tracing::error!("Failed to execute query: {:?}", e);
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
 
-    // log entry
-    log::info!("Req. ID '{}': Adding '{}', '{}' as a new subscriber", 
-        request_id,
-        form.email, 
-        form.name); // not that logging this is potentially a data breach in many places
+pub async fn insert_subscriber(
+    connection_pool: &PgPool,
+    form: &FormData,
+) -> Result<(), sqlx::Error> {
+    // this is now registered to above guard (Entered obj), & we will track our
+    // Future's activity with this span below with the .instrumnet() call
+    // note .instrument takes care of all entering/exiting this span
+    tracing::info_span!("Saving new subscriber details in the database");
 
     // insert form data to the db with this query
-    let query_result = sqlx::query!(
+    sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at)
         VALUES ($1, $2, $3, $4)
         "#,
-        request_id,
+        Uuid::new_v4(),
         form.email,
         form.name,
         Utc::now() // timestamp
-        )
-        // We use `get_ref` to get an immutable reference to the `PgConnection`
-        // wrapped by `web::Data`.
-        .execute(connection_pool.get_ref())
-        .await;
-
-    match query_result{
-        Ok(_) => {
-            // log entry
-            log::info!("Req. ID '{}': Saved new subscriber successfully!", request_id);
-            HttpResponse::Ok().finish()
-        },
-        Err(e) => {
-            log::info!("Req. ID '{}': Failed to execute query: {:?}", 
-                request_id, 
-                e);
-            HttpResponse::InternalServerError().finish()
-        }
-    }
-    
-
+    )
+    // We use `get_ref` to get an immutable reference to the `PgConnection`
+    // wrapped by `web::Data`.
+    .execute(connection_pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to execute query: {:?}", e);
+        e
+    })?; // Using the `?` operator to return early
+         // if the function failed, returning a sqlx::Error
+    Ok(())
 }

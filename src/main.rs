@@ -1,19 +1,23 @@
 use std::net::TcpListener;
+
+use sqlx::PgPool;
 use zero2prod::configuration;
 use zero2prod::startup;
-use sqlx::PgPool;
-use env_logger::Env;
+use zero2prod::telemetry;
 
 #[tokio::main] // a procedural macro that wraps synchronous main() in async fn -
                // otherwise async main not allowed, and this return type not allowed
 async fn main() -> Result<(), std::io::Error> {
-
     // set up error log - this checks an env variable RUST_LOG for setting or default to info
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    //env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
+    // set up trace and logging
+    let subscriber = telemetry::get_subscriber("zero2prod".into(), "info".into(), std::io::stdout);
+    telemetry::init_subscriber(subscriber);
 
     // Panic if we can't read the config file
-    let configuration = configuration::get_configuration().expect("Failed to read configuration.yaml");
+    let configuration =
+        configuration::get_configuration().expect("Failed to read configuration.yaml");
     // set the address - including port from config file - this is set to 0 (random port)
     let address = format!("127.0.0.1:{}", configuration.application_port);
 
@@ -29,12 +33,9 @@ async fn main() -> Result<(), std::io::Error> {
 
     // generate a connection to the database with the connection string
     // we use a pool of possible connections for concurrent queries
-    let connection_pool = PgPool::connect(
-        &configuration.database.connection_string()
-        )
+    let connection_pool = PgPool::connect(&configuration.database.connection_string())
         .await
         .expect("Failed to connect to Postgres.");
-
 
     // await the future here - we can call main as a non-blocking
     // task in tests etc
