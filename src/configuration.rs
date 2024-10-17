@@ -1,3 +1,6 @@
+use secrecy::ExposeSecret;
+use secrecy::Secret;
+
 // this code reads in and outputs app-specific settings from
 // and to a file, configuration.yaml
 
@@ -15,7 +18,7 @@ pub struct Settings {
 #[derive(serde::Deserialize, Clone)]
 pub struct DatabaseSettings {
     pub username: String,
-    pub password: String,
+    pub password: Secret<String>, // this will be redacted unless unwrapped
     pub port: u16,
     pub host: String,
     pub database_name: String,
@@ -40,10 +43,15 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
 // generate a connection_string from data in the config struct, which will allow us to connect
 // to the database with PgConnect
 impl DatabaseSettings {
-    pub fn connection_string(&self) -> String {
-        format!(
+    pub fn connection_string(&self) -> Secret<String> {
+        // we the connection string a secret
+        Secret::new(format!(
             "postgres://{}:{}@{}:{}/{}",
-            self.username, self.password, self.host, self.port, self.database_name
-        )
+            self.username,
+            self.password.expose_secret(), // exposed as redacted above
+            self.host,
+            self.port,
+            self.database_name
+        ))
     }
 }

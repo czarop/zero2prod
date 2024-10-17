@@ -36,6 +36,9 @@ tracing-bunyan-formatter = "0.3"
 # allows system logs in tracer
 tracing-log = "0.2"
 
+# hide certain strings from the log
+secrecy = { version = "0.8", features = ["serde"] }
+
 # Using table-like toml syntax to avoid a super-long line!
 [dependencies.sqlx]
 version = "0.8"

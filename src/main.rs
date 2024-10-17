@@ -1,6 +1,6 @@
-use std::net::TcpListener;
-
+use secrecy::ExposeSecret;
 use sqlx::PgPool;
+use std::net::TcpListener;
 use zero2prod::configuration;
 use zero2prod::startup;
 use zero2prod::telemetry;
@@ -33,9 +33,11 @@ async fn main() -> Result<(), std::io::Error> {
 
     // generate a connection to the database with the connection string
     // we use a pool of possible connections for concurrent queries
-    let connection_pool = PgPool::connect(&configuration.database.connection_string())
-        .await
-        .expect("Failed to connect to Postgres.");
+    let connection_pool = PgPool::connect(
+        &configuration.database.connection_string().expose_secret(), // this was marked as secret
+    )
+    .await
+    .expect("Failed to connect to Postgres.");
 
     // await the future here - we can call main as a non-blocking
     // task in tests etc
