@@ -39,6 +39,9 @@ tracing-log = "0.2"
 # hide certain strings from the log
 secrecy = { version = "0.8", features = ["serde"] }
 
+# get logging info from actix_web::Logger
+tracing-actix-web = "0.7"
+
 # Using table-like toml syntax to avoid a super-long line!
 [dependencies.sqlx]
 version = "0.8"

@@ -4,10 +4,12 @@
 // Note this function is not async!!
 
 use crate::routes;
-use actix_web::middleware::Logger;
+
 use actix_web::{dev::Server, web, App, HttpServer};
 use sqlx::PgPool;
 use std::net::TcpListener;
+use tracing_actix_web::TracingLogger;
+
 
 // argument TcpListener allows us to find the port that is assigned
 // to this server by the OS - only needed if you are using a random port (port 0)
@@ -27,7 +29,7 @@ pub fn run(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Er
             // route takes a path (a string) which can have named fields - here
             // anything after the / is termed 'name', which is used in the
             // handler fn - this is called templating, but is not req.
-            .wrap(Logger::default()) //we wrap the App in a logger - we need an implementation of the Log Trait to receive - done in main!
+            .wrap(TracingLogger::default()) //we wrap the App in a logger - we need an implementation of the Log Trait to receive - done in main!
             .route("/", web::get().to(routes::greet))
             .route("/health_check", web::get().to(routes::health_check))
             .route("/subscriptions", web::post().to(routes::subscribe))
