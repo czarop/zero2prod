@@ -25,7 +25,7 @@ pub struct FormData {
     // all fn args are automatically added to the log - but we may not want all
     skip(form, connection_pool), // we don't want to log stuff about these variables
     fields( // here we can add futher things of explicitly state how you want to display things
-    request_id = %Uuid::new_v4(), // you can use the variable name as a key
+                                     // you can use the variable name as a key
     subscriber_email = %form.email, // or explicitly name them
     subscriber_name = %form.name // the % - we are telling tracing to use their Display 
                                 // implementation for logging purposes
