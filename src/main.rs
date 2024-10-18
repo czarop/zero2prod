@@ -18,8 +18,8 @@ async fn main() -> Result<(), std::io::Error> {
     // Panic if we can't read the config file
     let configuration =
         configuration::get_configuration().expect("Failed to read configuration.yaml");
-    // set the address - including port from config file - this is set to 0 (random port)
-    let address = format!("127.0.0.1:{}", configuration.application_port);
+    // set the address an port from config file
+    let address = format!("{}:{}", configuration.application.host, configuration.application.port);
 
     // we want a random available port
     // specifying port 0 gives a random available port assigned by the OS
@@ -33,10 +33,9 @@ async fn main() -> Result<(), std::io::Error> {
 
     // generate a connection to the database with the connection string
     // we use a pool of possible connections for concurrent queries
-    let connection_pool = PgPool::connect(
+    let connection_pool = PgPool::connect_lazy(
         configuration.database.connection_string().expose_secret(), // this was marked as secret
     )
-    .await
     .expect("Failed to connect to Postgres.");
 
     // await the future here - we can call main as a non-blocking
