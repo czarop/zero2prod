@@ -4,13 +4,10 @@
 // Note this function is not async!!
 
 use crate::routes;
-
 use actix_web::{dev::Server, web, App, HttpServer};
 use sqlx::PgPool;
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
-
-
 // argument TcpListener allows us to find the port that is assigned
 // to this server by the OS - only needed if you are using a random port (port 0)
 pub fn run(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Error> {
