@@ -1,4 +1,3 @@
-
 use secrecy::ExposeSecret;
 use secrecy::Secret;
 
@@ -34,9 +33,7 @@ pub struct DatabaseSettings {
 
 // we will read our configuration settings from a file configuration.yaml
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
-
-    let base_path = std::env::current_dir()
-        .expect("Failed to determine the current directory");
+    let base_path = std::env::current_dir().expect("Failed to determine the current directory");
 
     let configuration_directory = base_path.join("configuration");
     // Detect the running environment.
@@ -49,17 +46,17 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let environment_filename = format!("{}.yaml", environment.as_str());
 
     let settings = config::Config::builder()
-        .add_source(
-            config::File::from(configuration_directory.join("base.yaml"))
-        )
-        .add_source(
-            config::File::from(configuration_directory.join(environment_filename))
-        )
+        .add_source(config::File::from(
+            configuration_directory.join("base.yaml"),
+        ))
+        .add_source(config::File::from(
+            configuration_directory.join(environment_filename),
+        ))
         .build()?;
 
     settings.try_deserialize::<Settings>()
-    }
-    /// The possible runtime environment for our application.
+}
+/// The possible runtime environment for our application.
 pub enum Environment {
     Local,
     Production,

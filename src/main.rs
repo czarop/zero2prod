@@ -19,7 +19,10 @@ async fn main() -> Result<(), std::io::Error> {
     let configuration =
         configuration::get_configuration().expect("Failed to read configuration.yaml");
     // set the address an port from config file
-    let address = format!("{}:{}", configuration.application.host, configuration.application.port);
+    let address = format!(
+        "{}:{}",
+        configuration.application.host, configuration.application.port
+    );
 
     // we want a random available port
     // specifying port 0 gives a random available port assigned by the OS
