@@ -1,6 +1,9 @@
 use secrecy::ExposeSecret;
 use secrecy::Secret;
 use serde_aux::field_attributes::deserialize_number_from_string;
+// instead of a connection string - this structure holds the options for db connection
+use sqlx::postgres::PgConnectOptions;
+use sqlx::postgres::PgSslMode; // for secure db connection
 
 // this code reads in and outputs app-specific settings from
 // and to a file, configuration.yaml
@@ -27,18 +30,43 @@ pub struct ApplicationSettings {
 // this has to impl Deserialize so it can be used in above Struct
 #[derive(serde::Deserialize, Clone)]
 pub struct DatabaseSettings {
-    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub username: String,
     pub password: Secret<String>, // this will be redacted unless unwrapped
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
     pub database_name: String,
+    // determine if we need secure connection
+    pub require_ssl: bool,
+}
+
+// generate a connection_string from data in the config struct, which will allow us to connect
+// to the database with PgConnect
+impl DatabaseSettings {
+    pub fn connection_options(&self) -> PgConnectOptions {
+        // if we are local, don't need ssl, if we are production, we do
+        // this is specified in the YAML config files
+        let ssl_mode = if self.require_ssl {
+            PgSslMode::Require
+        } else {
+            PgSslMode::Prefer
+        };
+        // when in production, these come from spec.yaml - which dynamically
+        // gets these from digitalocean db instance.
+        // when local, this is coming from base.yaml
+        PgConnectOptions::new()
+            .host(&self.host)
+            .username(&self.username)
+            .password(&self.password.expose_secret())
+            .port(self.port)
+            .ssl_mode(ssl_mode)
+            .database(&self.database_name)
+    }
 }
 
 // we will read our configuration settings from a file configuration.yaml
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
-    let base_path = std::env::current_dir()
-        .expect("Failed to determine the current directory");
+    let base_path = std::env::current_dir().expect("Failed to determine the current directory");
 
     let configuration_directory = base_path.join("configuration");
     // Detect the running environment.
@@ -60,9 +88,11 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         // Add in settings from environment variables (with a prefix of APP and
         // '__' as separator)
         // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
-        .add_source(config::Environment::with_prefix("APP")
-            .prefix_separator("_")
-            .separator("__"))
+        .add_source(
+            config::Environment::with_prefix("APP")
+                .prefix_separator("_")
+                .separator("__"),
+        )
         .build()?;
 
     settings.try_deserialize::<Settings>()
@@ -78,22 +108,6 @@ impl Environment {
             Environment::Local => "local",
             Environment::Production => "production",
         }
-    }
-}
-
-// generate a connection_string from data in the config struct, which will allow us to connect
-// to the database with PgConnect
-impl DatabaseSettings {
-    pub fn connection_string(&self) -> Secret<String> {
-        // we the connection string a secret
-        Secret::new(format!(
-            "postgres://{}:{}@{}:{}/{}",
-            self.username,
-            self.password.expose_secret(), // exposed as redacted above
-            self.host,
-            self.port,
-            self.database_name
-        ))
     }
 }
 

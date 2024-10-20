@@ -42,7 +42,24 @@ services:
 # All incoming requests should be routed to our app
     routes:
       - path: /
-
+# environment variables that allow connection to the db
+# these are used in configuration.rs
+    envs:
+      - key: APP_DATABASE__USERNAME
+        scope: RUN_TIME # RUN_TIME distinguishes from the variables needed for docker build
+        value: ${newsletter.USERNAME}
+      - key: APP_DATABASE__PASSWORD
+        scope: RUN_TIME
+        value: ${newsletter.PASSWORD}
+      - key: APP_DATABASE__HOST
+        scope: RUN_TIME
+        value: ${newsletter.HOSTNAME}
+      - key: APP_DATABASE__PORT
+        scope: RUN_TIME
+        value: ${newsletter.PORT}
+      - key: APP_DATABASE__DATABASE_NAME
+        scope: RUN_TIME
+        value: ${newsletter.DATABASE}
 databases:
 # PG = Postgres
   - engine: PG
@@ -52,4 +69,4 @@ databases:
     num_nodes: 1
     size: db-s-dev-database
 # Postgres version
-    version: "13"
+    version: "14"
