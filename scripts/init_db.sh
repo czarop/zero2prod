@@ -93,7 +93,8 @@ sqlx migrate run
 # to start do docker ps -a to find names of all containers, then
 # docker start NAME
 
-# To view the db use pgAdmin4 - install via pip to a python env (it is on general_env)
-# launch with pgadmin4
+# To view the db use pgAdmin4 - install via pip to a python env (it is on testenv)
+# launch with 
+# pgadmin4
 # login (tgslocombe@gmail.com, T@mdog12)
 # connect to localhost (127.0.0.1)
