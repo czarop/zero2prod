@@ -45,6 +45,11 @@ tracing-actix-web = "0.7"
 #deserialise numbers etc (ie non strings)
 serde-aux = "4"
 
+unicode-segmentation = "1"
+
+# email validation
+validator = "0.18"
+
 # Using table-like toml syntax to avoid a super-long line!
 [dependencies.sqlx]
 version = "0.8"
@@ -61,3 +66,8 @@ features = [
 # for dependencies required for tests only
 [dev-dependencies]
 reqwest = "0.12"
+claims = "0.7"
+fake = "2.9"
+quickcheck = "1.0.3"
+quickcheck_macros = "1"
+rand = "0.8"
