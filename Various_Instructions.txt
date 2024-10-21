@@ -4,6 +4,8 @@
 DATABASE_URL=postgresql://newsletter:AVNS_EGrWEeFvg76dUbwTx22@app-188ea9d6-86ea-4e85-a7df-a91f15732f05-do-user-18089782-0.k.db.ondigitalocean.com:25060/newsletter?sslmode=require sqlx migrate run
 
 # local request
+curl GET http://127.0.0.1:8000/health_check
+
 curl -i -X POST -d 'email=tim_mann@hotmail.com&name=Tim' http://127.0.0.1:8000/subscriptions
 
 # hosted address
