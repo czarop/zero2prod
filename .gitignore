@@ -1,4 +1,5 @@
 target/
-.cargo/
+target/*
 .cargo/config.toml
 .sqlx/
+.sqlx/*
