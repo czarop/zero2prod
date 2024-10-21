@@ -1,7 +1,0 @@
-run this to generate the queries:
-
-cargo sqlx prepare --workspace -- --all-targets
-
-prepare performs the same work that is usually done when cargo build is invoked but it
-saves the outcome of those queries into a directory (.sqlx) which can later be detected by sqlx itself and
-used to skip the queries altogether and perform an offline build.
