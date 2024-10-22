@@ -4,6 +4,7 @@ use serde_aux::field_attributes::deserialize_number_from_string;
 // instead of a connection string - this structure holds the options for db connection
 use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgSslMode; // for secure db connection
+use crate::domain::SubscriberEmail;
 
 // this code reads in and outputs app-specific settings from
 // and to a file, configuration.yaml
@@ -15,6 +16,8 @@ pub struct Settings {
     pub database: DatabaseSettings,
     // the port on which the app is listening for db updates
     pub application: ApplicationSettings,
+
+    pub email_client: EmailClientSettings,
 }
 
 // port listening on and host environemnt (docker image - production, or debug)
@@ -61,6 +64,26 @@ impl DatabaseSettings {
             .port(self.port)
             .ssl_mode(ssl_mode)
             .database(&self.database_name)
+    }
+}
+
+// data structure to hold info about the email 'sender' - ie postmark and your email address
+// these will be grabbed from config/production or config/base on startup
+#[derive(serde::Deserialize)]
+pub struct EmailClientSettings{
+    pub base_url: String,
+    pub sender_email: String,
+    pub auth_token: Secret<String>,
+}
+
+impl EmailClientSettings {
+    /// Returns the sender_email of this [`EmailClientSettings`].
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the address is not valid.
+    pub fn sender(&self) -> Result<SubscriberEmail, String> {
+        SubscriberEmail::parse(self.sender_email.clone())
     }
 }
 

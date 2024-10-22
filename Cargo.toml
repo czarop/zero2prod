@@ -50,7 +50,12 @@ unicode-segmentation = "1"
 # email validation
 validator = "0.18"
 
-# Using table-like toml syntax to avoid a super-long line!
+# http requests
+[dependencies.reqwest]
+version = "0.12"
+default-features = false
+features = ["json", "rustls-tls"]
+
 [dependencies.sqlx]
 version = "0.8"
 default-features = false
@@ -65,9 +70,10 @@ features = [
 
 # for dependencies required for tests only
 [dev-dependencies]
-reqwest = "0.12"
 claims = "0.7"
 fake = "2.9"
 quickcheck = "1.0.3"
 quickcheck_macros = "1"
 rand = "0.8"
+tokio = { version = "1", features = ["rt", "macros"] }
+wiremock = "0.6"
