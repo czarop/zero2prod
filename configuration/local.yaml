@@ -6,3 +6,4 @@ email_client:
   base_url: "http://localhost"
   sender_email: "postmaster@tomslocombe2.plus.com"
   auth_token: "my-secret-token"
+  timeout_milliseconds: 10000

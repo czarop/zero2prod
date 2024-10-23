@@ -1,11 +1,11 @@
 use reqwest::Client;
 use secrecy::Secret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use zero2prod::email_client::EmailClient;
 use std::net::TcpListener;
 use std::sync::LazyLock;
 use uuid::Uuid;
 use zero2prod::configuration;
+use zero2prod::email_client::EmailClient;
 use zero2prod::startup;
 use zero2prod::telemetry;
 
@@ -86,17 +86,22 @@ async fn spawn_app() -> TestApp {
     let connection_pool = configure_database(&configuration.database).await;
 
     // Build a new email client
-    let sender_email = configuration.email_client.sender()
+    let sender_email = configuration
+        .email_client
+        .sender()
         .expect("Invalid sender email address.");
+    let timeout = std::time::Duration::from_millis(200);
     let email_client = EmailClient::new(
         configuration.email_client.base_url,
         sender_email,
         configuration.email_client.auth_token,
+        timeout,
     );
 
     // create the server - clone the connection pool as it is an Arc pointer,
     // this essentially passes a ref
-    let server = startup::run(listener, connection_pool.clone(), email_client).expect("Failed to launch Server");
+    let server = startup::run(listener, connection_pool.clone(), email_client)
+        .expect("Failed to launch Server");
     // launch the server as a background / non-blocking task
     let _ = tokio::spawn(server);
     // note spawn will drop all tasks when the tokio runtime is ended - so the

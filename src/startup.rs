@@ -13,7 +13,11 @@ use tracing_actix_web::TracingLogger;
 /// # Errors
 ///
 /// This function will return an error if the server fails to start.
-pub fn run(listener: TcpListener, db_pool: PgPool, email_client: EmailClient) -> Result<Server, std::io::Error> {
+pub fn run(
+    listener: TcpListener,
+    db_pool: PgPool,
+    email_client: EmailClient,
+) -> Result<Server, std::io::Error> {
     // argument TcpListener allows us to find the port that is assigned
     // to this server by the OS - only needed if you are using a random port (port 0)
 
@@ -45,7 +49,7 @@ pub fn run(listener: TcpListener, db_pool: PgPool, email_client: EmailClient) ->
             // continue to the second - both path template and guards must be satisfied
             // this is the Builder pattern
             .app_data(db_pool.clone()) // passes the connection to db as part of an 'application state'
-                                       // this attaches extra info to the http request and is going to allow us to send updates to the db
+            // this attaches extra info to the http request and is going to allow us to send updates to the db
             .app_data(email_client.clone()) // same for the emaial client
     })
     .listen(listener)? // binds to the port identified by listener
