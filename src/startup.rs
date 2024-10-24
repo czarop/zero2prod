@@ -1,13 +1,72 @@
-// Run ############################################################################
-
-// we return a server instance from this - so it can be run async in main
-// Note this function is not async!!
-
+use crate::configuration::DatabaseSettings;
+use crate::configuration::Settings;
 use crate::{email_client::EmailClient, routes};
 use actix_web::{dev::Server, web, App, HttpServer};
+use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
+
+// A new type to hold the newly built server and its port
+pub struct Application {
+    port: u16,
+    server: Server,
+}
+impl Application {
+    pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
+        // generate a connection to the database with the connection options
+        // generated in configuration.rs
+        // we use a pool of possible connections for concurrent queries
+        let connection_pool = get_connection_pool(&configuration.database);
+
+        // get the sender email address from config
+        let sender_email = configuration
+            .email_client
+            .sender()
+            .expect("Invalid sender address.");
+
+        let timeout = configuration.email_client.timeout();
+        // build the client
+        let email_client = EmailClient::new(
+            configuration.email_client.base_url,
+            sender_email,
+            configuration.email_client.auth_token,
+            timeout,
+        );
+
+        // set the address an port from config file
+        let address = format!(
+            "{}:{}",
+            configuration.application.host, configuration.application.port
+        );
+
+        // we want a random available port
+        // specifying port 0 gives a random available port assigned by the OS
+        // but we need to know which port it is so we can send requests to it
+        // create a TcpListener to track which port is assigned for the server to bind
+        let listener = TcpListener::bind(address)?;
+        println!("Connected to {}", listener.local_addr()?);
+        let port = listener.local_addr().unwrap().port();
+        let server = run(listener, connection_pool, email_client)?;
+        Ok(Self { port, server })
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    // A more expressive name that makes it clear that
+    // this function only returns when the application is stopped.
+    pub async fn run_until_stopped(self) -> Result<(), std::io::Error> {
+        self.server.await
+    }
+}
+
+pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
+    // connect lazy means no connections will be made until we need one
+    PgPoolOptions::new().connect_lazy_with(configuration.connection_options())
+}
+
 /// Starts and runs the server, as well as generating an http client pool.
 ///
 /// # Errors

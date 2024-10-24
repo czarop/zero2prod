@@ -77,7 +77,7 @@ impl EmailClient {
             text_body: text_content,
         };
 
-        let builder = self
+        let _builder = self
             .http_client
             .post(url)
             .header("X-Postmark-Server-Token", self.auth_token.expose_secret())

@@ -10,7 +10,7 @@ use sqlx::postgres::PgSslMode; // for secure db connection
 // and to a file, configuration.yaml
 
 // A struct holding settings relevent to this run
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct Settings {
     // settings for the db
     pub database: DatabaseSettings,
@@ -21,7 +21,7 @@ pub struct Settings {
 }
 
 // port listening on and host environemnt (docker image - production, or debug)
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct ApplicationSettings {
     // this allows deserialisation of numbers - needs the serde_aux dependency and import
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -69,7 +69,7 @@ impl DatabaseSettings {
 
 // data structure to hold info about the email 'sender' - ie postmark and your email address
 // these will be grabbed from config/production or config/base on startup
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_email: String,
