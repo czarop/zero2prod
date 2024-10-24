@@ -2,8 +2,3 @@ application:
   host: 127.0.0.1
 database:
   require_ssl: false
-email_client:
-  base_url: "http://localhost"
-  sender_email: "postmaster@tomslocombe2.plus.com"
-  auth_token: "my-secret-token"
-  timeout_milliseconds: 10000
