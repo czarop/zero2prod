@@ -29,6 +29,7 @@ pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool, // connection to the db - a pool of connections for async queries
     pub email_server: MockServer, // a fake email server - we will check if emails are sent and what they contain
+    pub port: u16,                // we store the port of the app locally for testing purposes
 }
 
 impl TestApp {
@@ -86,6 +87,7 @@ pub async fn spawn_app() -> TestApp {
         address,
         db_pool: get_connection_pool(&configuration.database),
         email_server,
+        port: application_port,
     }
 }
 

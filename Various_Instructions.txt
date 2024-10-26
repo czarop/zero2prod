@@ -34,6 +34,12 @@ doctl apps create --spec spec.yaml
 # note you have to turn off Trusted Sources before running
 DATABASE_URL=postgresql://newsletter:AVNS_EGrWEeFvg76dUbwTx22@app-188ea9d6-86ea-4e85-a7df-a91f15732f05-do-user-18089782-0.k.db.ondigitalocean.com:25060/newsletter?sslmode=require sqlx migrate run
 
+
+# To update the app:
+grab your app identifier via doctl apps list --format ID 
+and then run 
+doctl apps update $APP_ID --spec spec.yaml
+
 # hosted address
 # change app address below
 curl --request POST \

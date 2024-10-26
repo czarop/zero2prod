@@ -45,6 +45,9 @@ services:
 # environment variables that allow connection to the db
 # these are used in configuration.rs
     envs:
+      - key: APP_APPLICATION__BASE_URL
+        scope: RUN_TIME
+        value: ${APP_URL}
       - key: APP_DATABASE__USERNAME
         scope: RUN_TIME # RUN_TIME distinguishes from the variables needed for docker build
         value: ${newsletter.USERNAME}

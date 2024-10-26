@@ -47,7 +47,12 @@ impl Application {
         let listener = TcpListener::bind(address)?;
         println!("Connected to {}", listener.local_addr()?);
         let port = listener.local_addr().unwrap().port();
-        let server = run(listener, connection_pool, email_client)?;
+        let server = run(
+            listener,
+            connection_pool,
+            email_client,
+            configuration.application.base_url,
+        )?;
         Ok(Self { port, server })
     }
 
@@ -67,6 +72,12 @@ pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
     PgPoolOptions::new().connect_lazy_with(configuration.connection_options())
 }
 
+// We need to define a wrapper type in order to retrieve the URL
+// in the `subscribe` handler.
+// Retrieval from the context, in actix-web, is type-based: using
+// a raw `String` would expose us to conflicts.
+pub struct ApplicationBaseUrl(pub String);
+
 /// Starts and runs the server, as well as generating an http client pool.
 ///
 /// # Errors
@@ -76,6 +87,7 @@ pub fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
+    base_url: String,
 ) -> Result<Server, std::io::Error> {
     // argument TcpListener allows us to find the port that is assigned
     // to this server by the OS - only needed if you are using a random port (port 0)
@@ -87,6 +99,9 @@ pub fn run(
     // same stratergy with the email client, as we want async functionality, and to
     // pass out multiple refs
     let email_client = web::Data::new(email_client);
+
+    // this is the address we can the confirmation link to navigate to
+    let base_url = web::Data::new(ApplicationBaseUrl(base_url));
 
     // create a server - this binds to socket and has options for
     // security etc, but needs an App to do something - passed in a closure
@@ -103,6 +118,7 @@ pub fn run(
             .route("/", web::get().to(routes::greet))
             .route("/health_check", web::get().to(routes::health_check))
             .route("/subscriptions", web::post().to(routes::subscribe))
+            .route("/subscriptions/confirm", web::get().to(routes::confirm))
             // note you can chain together commands - if the first is not met it will
             // continue to the second - both path template and guards must be satisfied
             // this is the Builder pattern
@@ -110,6 +126,7 @@ pub fn run(
             // this attaches extra info to the http request and is going to allow us to send updates to the db
             // you can access things attached here down the line with web::Data
             .app_data(email_client.clone()) // same for the email client
+            .app_data(base_url.clone()) // same for the url for conf. email
     })
     .listen(listener)? // binds to the port identified by listener
     //.bind("127.0.0.1:8000")? // use this or listen - this binds the server to specific socket address

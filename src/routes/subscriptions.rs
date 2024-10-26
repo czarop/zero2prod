@@ -1,6 +1,7 @@
 use crate::{
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
     email_client::EmailClient,
+    startup::ApplicationBaseUrl,
 };
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
@@ -41,7 +42,7 @@ impl TryFrom<FormData> for NewSubscriber {
 #[tracing::instrument( // this macro registers everything that happens in the below fn as part of a new SPAN
     name = "Adding a new subscriber", //a message associated to the function span
     // all fn args are automatically added to the log
-    skip(form, connection_pool, email_client), // we don't want to log stuff about these variables
+    skip(form, connection_pool, email_client, base_url), // we don't want to log stuff about these variables
     fields( // here we can add futher things of explicitly state how you want to display things
     subscriber_email = %form.email,
     subscriber_name = %form.name // the % - we are telling tracing to use their Display implementation
@@ -51,8 +52,9 @@ pub async fn subscribe(
     form: web::Form<FormData>, // FormData defined above
     connection_pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>, //form data contains
-                                          // our http request info in FormData but also anything attached with .app_data(data) in Web::Data <- we did this
-                                          // with email_client and PgPool in the Run fn in Startup.rs
+    // our http request info in FormData but also anything attached with .app_data(data) in Web::Data <- we did this
+    // with email_client and PgPool in the Run fn in Startup.rs
+    base_url: web::Data<ApplicationBaseUrl>, // address for the confirmation email
 ) -> HttpResponse {
     // web::form is a wrapper around FormData (Form<FormData>) -
     // access the formdata by form.0
@@ -69,7 +71,7 @@ pub async fn subscribe(
         return HttpResponse::InternalServerError().finish();
     }
 
-    let send_email_failed = send_confirmation_email(&email_client, new_subscriber)
+    let send_email_failed = send_confirmation_email(&email_client, new_subscriber, &base_url.0)
         .await
         .is_err();
 
@@ -87,9 +89,13 @@ pub async fn subscribe(
 pub async fn send_confirmation_email(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
+    base_url: &str,
 ) -> Result<(), reqwest::Error> {
-    // make a confirmation link
-    let confirmation_link = "https://there-is-no-such-domain-6467327.com/subscriptions/confirm";
+    // make a confirmation link - inlcude a subscription token
+    let confirmation_link = format!(
+        "{}/subscriptions/confirm?subscription_token=mytoken",
+        base_url
+    );
 
     let html_body = &format!(
         "Welcome to our newsletter!<br />\
