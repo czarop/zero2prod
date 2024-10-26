@@ -82,19 +82,3 @@ sqlx migrate run
 
 >&2 echo "Postgres has been migrated, ready to go!"
 
-# if already exists run with:
-# SKIP_DOCKER=true ./scripts/init_db.sh
-
-# else-
-# to run enter to terminal: ./scripts/init_db.sh
-# you may need to do the following - this will stop and remove the old db: 
-# docker stop NAME
-# docker rm name
-# to start do docker ps -a to find names of all containers, then
-# docker start NAME
-
-# To view the db use pgAdmin4 - install via pip to a python env (it is on testenv)
-# launch with 
-# pgadmin4
-# login (tgslocombe@gmail.com, T@mdog12)
-# connect to localhost (127.0.0.1)

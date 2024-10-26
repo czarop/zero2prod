@@ -103,13 +103,13 @@ pub fn run(
             .route("/", web::get().to(routes::greet))
             .route("/health_check", web::get().to(routes::health_check))
             .route("/subscriptions", web::post().to(routes::subscribe))
-            //.route("/{name}", web::get().to(greet))
             // note you can chain together commands - if the first is not met it will
             // continue to the second - both path template and guards must be satisfied
             // this is the Builder pattern
             .app_data(db_pool.clone()) // passes the connection to db as part of an 'application state'
             // this attaches extra info to the http request and is going to allow us to send updates to the db
-            .app_data(email_client.clone()) // same for the emaial client
+            // you can access things attached here down the line with web::Data
+            .app_data(email_client.clone()) // same for the email client
     })
     .listen(listener)? // binds to the port identified by listener
     //.bind("127.0.0.1:8000")? // use this or listen - this binds the server to specific socket address

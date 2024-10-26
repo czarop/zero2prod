@@ -1,16 +1,38 @@
-To launch the app on Digital Ocean:
+local
+# db migration - if already exists run with:
+SKIP_DOCKER=true ./scripts/init_db.sh
 
+# else-
+# to generate the db enter to terminal: 
+./scripts/init_db.sh
 
+# you may need to do the following - this will stop and remove the old db: 
+# docker stop NAME
+# docker rm name
+# to start do docker ps -a to find names of all containers, then
+# docker start NAME
 
-# To migrate the production database type this to terminal
-# the address is taken from DigitalOcean newsletter connection string:
-# note you have to turn off Trusted Sources before running
-DATABASE_URL=postgresql://newsletter:AVNS_EGrWEeFvg76dUbwTx22@app-188ea9d6-86ea-4e85-a7df-a91f15732f05-do-user-18089782-0.k.db.ondigitalocean.com:25060/newsletter?sslmode=require sqlx migrate run
+# To view the db use pgAdmin4 - install via pip to a python env (it is on testenv)
+# launch with 
+# pgadmin4
+# login (tgslocombe@gmail.com, T@mdog12)
 
 # local request
 curl GET http://127.0.0.1:8000/health_check
 
 curl -i -X POST -d 'email=tim_mann@hotmail.com&name=Tim' http://127.0.0.1:8000/subscriptions
+
+
+
+Production:
+
+#To generate the app on Digital Ocean:
+doctl apps create --spec spec.yaml
+
+# To migrate the production database type this to terminal
+# the address is taken from DigitalOcean newsletter connection string:
+# note you have to turn off Trusted Sources before running
+DATABASE_URL=postgresql://newsletter:AVNS_EGrWEeFvg76dUbwTx22@app-188ea9d6-86ea-4e85-a7df-a91f15732f05-do-user-18089782-0.k.db.ondigitalocean.com:25060/newsletter?sslmode=require sqlx migrate run
 
 # hosted address
 # change app address below

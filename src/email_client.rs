@@ -18,7 +18,7 @@ struct SendEmailRequest<'a> {
 
 pub struct EmailClient {
     http_client: Client,
-    base_url: reqwest::Url,
+    base_url: String,
     sender: SubscriberEmail,
     auth_token: Secret<String>,
 }
@@ -33,13 +33,17 @@ impl EmailClient {
         // create a client with a timeout of 10s if no response from server
         let http_client = Client::builder().timeout(timeout).build().unwrap();
 
+        // let url = reqwest::Url::parse(&base_url)
+        // .expect(format!("Could not parse url {}", base_url).as_str());
+
+        // println!("{}", url);
+
         // create the email client wrapper
         Self {
-            http_client: http_client,
-            base_url: reqwest::Url::parse(&base_url)
-                .expect(format!("Could not parse url {}", base_url).as_str()),
-            sender: sender,
-            auth_token: auth_token,
+            http_client,
+            base_url,
+            sender,
+            auth_token,
         }
     }
 
@@ -64,22 +68,18 @@ impl EmailClient {
         //     "HtmlBody": "<html><body><strong>Hello</strong> dear Postmark user.</body></html>"
         //     }'
 
-        let url = self
-            .base_url
-            .join("/email")
-            .expect(format!("Failed to parse base URL {}", self.base_url).as_str());
-
+        let url = format!("{}/email", self.base_url);
+        println!("{}", url);
         let request_body = SendEmailRequest {
             from: self.sender.as_ref(), // we could put these as 'to_owned' and have them as Strings
             to: recipient.as_ref(),
-            subject: subject,
+            subject,
             html_body: html_content,
             text_body: text_content,
         };
 
-        let _builder = self
-            .http_client
-            .post(url)
+        self.http_client
+            .post(&url)
             .header("X-Postmark-Server-Token", self.auth_token.expose_secret())
             .json(&request_body)
             .send()
@@ -131,6 +131,9 @@ mod tests {
         let mock_server = wiremock::MockServer::start().await; // this is a real server run on a thread!
                                                                // make an email client
         let address = mock_server.uri(); // the address the server is running on
+
+        println!("{}", &address);
+
         let email_client = email_client(address);
 
         // give the mock server some parameters by 'mounting' a Mock
