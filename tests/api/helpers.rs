@@ -42,6 +42,48 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+
+    ///Extract the confirmation links from the email body
+    pub fn get_confirmation_links(
+        &self,
+        email_request: &wiremock::Request
+    ) -> ConfirmationLinks {
+
+        // get the body of the request
+        let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
+        
+        // a closure to find links - we use it below
+        let get_link = |s: &str| {
+            // linkify finds links...(!)
+            let links: Vec<_> = linkify::LinkFinder::new()
+                .links(s)
+                .filter(|l| *l.kind() == linkify::LinkKind::Url)
+                .collect();
+
+            assert_eq!(links.len(), 1);
+
+            // get the first (and only) link
+            let raw_link = links[0].as_str().to_owned();
+            let mut confirmation_link = reqwest::Url::parse(&raw_link).unwrap();
+
+            // check it's a local address - not smth random on the web
+            assert_eq!(confirmation_link.host_str().unwrap(), "127.0.0.1");
+
+            // re-write to include the port - only required for local
+            confirmation_link.set_port(Some(self.port)).unwrap();
+
+            confirmation_link
+        };
+
+        // get the html and plain text links - passed into the closure above
+        let html = get_link(&body["HtmlBody"].as_str().unwrap());
+        let plain_text = get_link(&body["TextBody"].as_str().unwrap());
+
+        ConfirmationLinks {
+            html,
+            plain_text
+        }
+    }
 }
 
 // don't propogate errors here - as only for testing - crash the program
@@ -119,4 +161,10 @@ pub async fn configure_database(config: &configuration::DatabaseSettings) -> PgP
         .expect("Failed to migrate db");
 
     connection_pool
+}
+
+/// Confirmation links embedded in the request to the email API.
+pub struct ConfirmationLinks {
+    pub html: reqwest::Url,
+    pub plain_text: reqwest::Url,
 }
