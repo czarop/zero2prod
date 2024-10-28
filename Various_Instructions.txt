@@ -1,3 +1,12 @@
+for windows to create the db locally:
+docker run --name postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres -N 1000
+docker exec -it "postgres" psql -U "postgres" -c "CREATE USER app WITH PASSWORD 'secret';"
+docker exec -it "postgres" psql -U "postgres" -c "ALTER USER app CREATEDB;"
+set postgres://app:secret@localhost:5432/newsletter
+sqlx database create
+sqlx migrate run
+
+
 local
 # db migration - if already exists run with:
 SKIP_DOCKER=true ./scripts/init_db.sh
@@ -20,7 +29,7 @@ SKIP_DOCKER=true ./scripts/init_db.sh
 # local request
 curl GET http://127.0.0.1:8000/health_check
 
-curl -i -X POST -d 'email=tim_mann@hotmail.com&name=Tim' http://127.0.0.1:8000/subscriptions
+curl -i -X POST http://127.0.0.1:8000/subscriptions -H "Content-Type: application/x-www-form-urlencoded" -d "email=tgslocombe@outlook.com&name=Tom"
 
 
 
