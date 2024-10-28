@@ -2,9 +2,6 @@ use crate::helpers::spawn_app;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, ResponseTemplate};
 
-
-
-
 #[tokio::test]
 async fn confirmations_without_token_are_rejected_with_400() {
     // Arrange
@@ -34,7 +31,7 @@ async fn the_link_returned_by_subscribe_returns_a_200_if_called() {
     app.post_subscriptions(body.into()).await;
     // get the first email
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
-    
+
     let confirmation_links = app.get_confirmation_links(&email_request);
 
     // Act - "click" the link
@@ -45,7 +42,7 @@ async fn the_link_returned_by_subscribe_returns_a_200_if_called() {
 }
 
 #[tokio::test]
-async fn clicking_on_the_confirmation_link_confirms_a_subscriber(){
+async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
     //Arrange
     let app = spawn_app().await;
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
@@ -69,12 +66,11 @@ async fn clicking_on_the_confirmation_link_confirms_a_subscriber(){
 
     //Assert - get the record fromt he db
     let saved = sqlx::query!("SELECT email, name, status FROM subscriptions",)
-    .fetch_one(&app.db_pool)
-    .await
-    .expect("Failed to fetch saved subscription.");
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("Failed to fetch saved subscription.");
 
     assert_eq!(saved.email, "ursula_le_guin@gmail.com");
     assert_eq!(saved.name, "le guin");
     assert_eq!(saved.status, "confirmed");
-
 }

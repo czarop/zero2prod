@@ -44,14 +44,10 @@ impl TestApp {
     }
 
     ///Extract the confirmation links from the email body
-    pub fn get_confirmation_links(
-        &self,
-        email_request: &wiremock::Request
-    ) -> ConfirmationLinks {
-
+    pub fn get_confirmation_links(&self, email_request: &wiremock::Request) -> ConfirmationLinks {
         // get the body of the request
         let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
-        
+
         // a closure to find links - we use it below
         let get_link = |s: &str| {
             // linkify finds links...(!)
@@ -79,10 +75,7 @@ impl TestApp {
         let html = get_link(&body["HtmlBody"].as_str().unwrap());
         let plain_text = get_link(&body["TextBody"].as_str().unwrap());
 
-        ConfirmationLinks {
-            html,
-            plain_text
-        }
+        ConfirmationLinks { html, plain_text }
     }
 }
 
