@@ -29,7 +29,7 @@ SKIP_DOCKER=true ./scripts/init_db.sh
 # local request
 curl GET http://127.0.0.1:8000/health_check
 
-curl -i -X POST http://127.0.0.1:8000/subscriptions -H "Content-Type: application/x-www-form-urlencoded" -d "email=tgslocombe@outlook.com&name=Tom"
+curl -i -X POST http://127.0.0.1:8000/subscriptions -H "Content-Type: application/x-www-form-urlencoded" -d "email=tgslocombe%40outlook.com&name=Tom"
 
 
 

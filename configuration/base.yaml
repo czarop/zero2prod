@@ -1,16 +1,16 @@
 # base.yaml
 application:
   port: 8000
-
+  host: 0.0.0.0
 database:
-  host: "localhost"
+  host: "127.0.0.1"
   port: 5432
   username: "postgres"
   password: "password"
   database_name: "newsletter"
-
+  require_ssl: false
 email_client:
-  base_url: "http://localhost"
+  base_url: "https://api.postmarkapp.com"
   sender_email: "postmaster@tomslocombe2.plus.com"
-  auth_token: "my-secret-token"
+  auth_token: "c527186d-10ec-4be1-9972-7e7c3d53549f"
   timeout_milliseconds: 10000

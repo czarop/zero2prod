@@ -31,8 +31,12 @@ impl EmailClient {
         timeout: std::time::Duration,
     ) -> Self {
         // create a client with a timeout of 10s if no response from server
-        let http_client = Client::builder().timeout(timeout).build().unwrap();
+        let http_client = Client::builder().timeout(timeout).build();
 
+        let http_client = match http_client {
+            Ok(client) => client,
+            Err(_) => panic!("Cannot create server"),
+        };
         // let url = reqwest::Url::parse(&base_url)
         // .expect(format!("Could not parse url {}", base_url).as_str());
 
@@ -68,8 +72,9 @@ impl EmailClient {
         //     "HtmlBody": "<html><body><strong>Hello</strong> dear Postmark user.</body></html>"
         //     }'
 
+        // this is firing to https://api.postmarkapp.com/email
         let url = format!("{}/email", self.base_url);
-        println!("{}", url);
+        println!("{}", self.auth_token.expose_secret());
         let request_body = SendEmailRequest {
             from: self.sender.as_ref(), // we could put these as 'to_owned' and have them as Strings
             to: recipient.as_ref(),

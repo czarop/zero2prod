@@ -3,7 +3,7 @@ use crate::{
     email_client::EmailClient,
     startup::ApplicationBaseUrl,
 };
-use actix_web::{web, HttpResponse};
+use actix_web::{web, HttpResponse, ResponseError};
 use chrono::Utc;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
@@ -11,6 +11,23 @@ use sqlx::{Executor, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 // Http POST Handler ############################################################
+
+// define a new error type for issuing httpresponse errors - we just want
+// to wrap sqlx::Error in a new type so that we can implement a trait on it from
+// actix::web - but we need to also impl debug and display...
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct StoreTokenError(sqlx::Error);
+impl ResponseError for StoreTokenError {}
+impl std::fmt::Display for StoreTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "A database error was encountered while \
+             trying to store a subscription token."
+        )
+    }
+}
 
 // handler for subscribe post requests - the fn is going to extract form data from a
 // post request. It needs a struct containing the form datafields as such:
@@ -57,12 +74,12 @@ pub async fn subscribe(
     // our http request info in FormData but also anything attached with .app_data(data) in Web::Data <- we did this
     // with email_client and PgPool in the Run fn in Startup.rs
     base_url: web::Data<ApplicationBaseUrl>, // address for the confirmation email
-) -> HttpResponse {
+) -> Result<HttpResponse, actix_web::Error> {
     // web::form is a wrapper around FormData (Form<FormData>) -
     // access the formdata by form.0
     let new_subscriber = match form.0.try_into() {
         Ok(subscriber) => subscriber, // NewSubscriber defined in domain::new_subscriber
-        Err(_) => return HttpResponse::BadRequest().finish(),
+        Err(_) => return Ok(HttpResponse::BadRequest().finish()),
     };
 
     // create an sqlx 'transaction' that groups together sqlx queries so that you don't
@@ -70,26 +87,21 @@ pub async fn subscribe(
     // call queries on this instead of pool
     let mut transaction = match connection_pool.begin().await {
         Ok(transaction) => transaction,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
     let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber).await {
         Ok(id) => id,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
     let subscription_token = generate_subscription_token();
 
-    if store_token(&mut transaction, subscriber_id, &subscription_token)
-        .await
-        .is_err()
-    {
-        return HttpResponse::InternalServerError().finish();
-    }
+    store_token(&mut transaction, subscriber_id, &subscription_token).await?;
 
     // commit the transaction - ie make changes to the db permanent
     if transaction.commit().await.is_err() {
-        return HttpResponse::InternalServerError().finish();
+        return Ok(HttpResponse::InternalServerError().finish());
     }
 
     let send_email_failed = send_confirmation_email(
@@ -102,9 +114,9 @@ pub async fn subscribe(
     .is_err();
 
     if send_email_failed {
-        return HttpResponse::InternalServerError().finish();
+        return Ok(HttpResponse::InternalServerError().finish());
     } else {
-        return HttpResponse::Ok().finish();
+        return Ok(HttpResponse::Ok().finish());
     }
 }
 
@@ -116,7 +128,7 @@ pub async fn store_token(
     transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), StoreTokenError> {
     let query = sqlx::query!(
         r#"INSERT INTO subscription_tokens (subscription_token, subscriber_id)
         VALUES ($1, $2)"#,
@@ -125,7 +137,7 @@ pub async fn store_token(
     );
     transaction.execute(query).await.map_err(|e| {
         tracing::error!("Failed to execute query: {:?}", e);
-        e
+        StoreTokenError(e)
     })?;
     Ok(())
 }

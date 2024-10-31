@@ -171,3 +171,33 @@ async fn subscribe_sends_a_confirmation_email_with_a_link() {
     // The two links should be identical
     assert_eq!(confirmation_links.html, confirmation_links.plain_text);
 }
+
+// use std::{println as info, println as warn};
+
+#[tokio::test]
+async fn subscribe_fails_if_there_is_a_fatal_database_error() {
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    // sabotage the db
+    sqlx::query("ALTER TABLE subscription_tokens DROP COLUMN subscription_token;")
+        .execute(&app.db_pool)
+        .await
+        .unwrap();
+
+    let response = app.post_subscriptions(body.into()).await;
+
+    let status = response.status().as_u16();
+
+    // cannot get their implementation to print the log on windows
+    // so forced to print the error message
+    // call cargo t subscribe_fails_if_there_is_a_fatal_database_error -- --show-output
+    println!("{:?}", &response.text().await.unwrap());
+
+    // try on linux:
+    // export RUST_LOG="sqlx=error,info"
+    // export TEST_LOG=true
+    // cargo t subscribe_fails_if_there_is_a_fatal_database_error | bunyan
+
+    assert_eq!(status, 500);
+}
