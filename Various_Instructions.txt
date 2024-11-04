@@ -41,7 +41,7 @@ doctl apps create --spec spec.yaml
 # To migrate the production database type this to terminal
 # the address is taken from DigitalOcean newsletter connection string:
 # note you have to turn off Trusted Sources before running
-DATABASE_URL=postgresql://newsletter:AVNS_EGrWEeFvg76dUbwTx22@app-188ea9d6-86ea-4e85-a7df-a91f15732f05-do-user-18089782-0.k.db.ondigitalocean.com:25060/newsletter?sslmode=require sqlx migrate run
+DATABASE_URL=postgresql://newsletter:AVNS_hmd0HtQEBjbjcs8MNut@app-21936b6a-dd5a-4df1-8fde-bffea1c5c73a-do-user-18089782-0.j.db.ondigitalocean.com:25060/newsletter?sslmode=require sqlx migrate run
 
 
 # To update the app:
@@ -51,5 +51,4 @@ doctl apps update $APP_ID --spec spec.yaml
 
 # hosted address
 # change app address below
-curl --request POST \
---data 'name=le%20guin&email=ursula_le_guin%40gmail.com' https://zero2prod-5gxmv.ondigitalocean.app/subscriptions --verbose
+curl -i -X POST -H "Content-Type: application/x-www-form-urlencoded" -d 'name=Tom%20Slocombe&email=tgslocombe%40outlook.com' https://zero2prod-wl734.ondigitalocean.app/subscriptions --verbose

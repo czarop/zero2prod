@@ -64,7 +64,7 @@ impl TestApp {
 
             // check it's a local address - not smth random on the web
             assert_eq!(confirmation_link.host_str().unwrap(), "127.0.0.1");
-
+            
             // re-write to include the port - only required for local
             confirmation_link.set_port(Some(self.port)).unwrap();
 
