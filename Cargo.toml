@@ -52,6 +52,9 @@ validator = "0.18"
 
 rand = { version = "0.8", features = ["std_rng"] }
 
+# error boilerplate generator
+thiserror = "1"
+
 # http requests
 [dependencies.reqwest]
 version = "0.12"
