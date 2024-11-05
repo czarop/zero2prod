@@ -156,7 +156,6 @@ fn error_chain_fmt(
 //     }
 // }
 
-
 // impl From<StoreTokenError> for SubscribeError{
 //     fn from(e: StoreTokenError) -> Self {
 //         Self::StoreTokenError(e)
@@ -169,23 +168,24 @@ fn error_chain_fmt(
 //     }
 // }
 
-// this error makes all the above code with the following
+// this macro makes all the above code with the following
 #[derive(thiserror::Error)]
 pub enum SubscribeError {
     #[error("{0}")]
+    //defines the Display representation of the enum variant it is applied to - the 0 refers to Self.0
     ValidationError(String),
     #[error("Failed to acquire a Postgres connection from the pool")]
-    PoolError(#[source] sqlx::Error),
+    PoolError(#[source] sqlx::Error), // #[source] is used to denote what should be returned as root cause in Error::source
     #[error("Failed to insert new subscriber in the database.")]
     InsertSubscriberError(#[source] sqlx::Error),
     #[error("Failed to store the confirmation token for a new subscriber.")]
-    StoreTokenError(#[from] StoreTokenError),
+    StoreTokenError(#[from] StoreTokenError), //#[from] automatically derives an implementation of From - but also used as an error source
     #[error("Failed to commit SQL transaction to store a new subscriber.")]
     TransactionCommitError(#[source] sqlx::Error),
     #[error("Failed to send a confirmation email.")]
     SendEmailError(#[from] reqwest::Error),
 }
-impl std::fmt::Debug for SubscribeError{
+impl std::fmt::Debug for SubscribeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // go as far back in the error chain as you can to ID the source
         error_chain_fmt(self, f)
@@ -197,7 +197,7 @@ impl std::fmt::Debug for SubscribeError{
 // we override to but give different responses from each error type
 impl ResponseError for SubscribeError {
     fn status_code(&self) -> StatusCode {
-        match self{
+        match self {
             // bad request when email address can't be validated
             SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST,
             // otherwise internal server error
@@ -209,7 +209,6 @@ impl ResponseError for SubscribeError {
         }
     }
 }
-
 
 // handler for subscribe post requests - the fn is going to extract form data from a
 // post request. It needs a struct containing the form datafields as such:
@@ -259,28 +258,29 @@ pub async fn subscribe(
 ) -> Result<HttpResponse, SubscribeError> {
     // web::form is a wrapper around FormData (Form<FormData>) -
     // access the formdata by form.0
-    let new_subscriber = form.0
-        .try_into()
-        .map_err(SubscribeError::ValidationError)?;
+    let new_subscriber = form.0.try_into().map_err(SubscribeError::ValidationError)?;
 
     // create an sqlx 'transaction' that groups together sqlx queries so that you don't
     // get stuck in an interim state if the program crashes 1/2 way through
     // call queries on this instead of pool
-    let mut transaction = connection_pool.begin()
+    let mut transaction = connection_pool
+        .begin()
         .await
         .map_err(SubscribeError::PoolError)?;
 
-    let subscriber_id 
-        = insert_subscriber(&mut transaction, &new_subscriber)
-            .await
-            .map_err(SubscribeError::InsertSubscriberError)?;
+    let subscriber_id = insert_subscriber(&mut transaction, &new_subscriber)
+        .await
+        .map_err(SubscribeError::InsertSubscriberError)?;
 
     let subscription_token = generate_subscription_token();
 
     store_token(&mut transaction, subscriber_id, &subscription_token).await?;
 
     // commit the transaction - ie make changes to the db permanent
-    transaction.commit().await.map_err(SubscribeError::TransactionCommitError)?;
+    transaction
+        .commit()
+        .await
+        .map_err(SubscribeError::TransactionCommitError)?;
 
     send_confirmation_email(
         &email_client,
