@@ -15,18 +15,58 @@ use uuid::Uuid;
 // define a new error type for issuing httpresponse errors - we just want
 // to wrap sqlx::Error in a new type so that we can implement a trait on it from
 // actix::web - but we need to also impl debug and display...
-#[derive(Debug)]
+
 #[allow(dead_code)]
 pub struct StoreTokenError(sqlx::Error);
+
 impl ResponseError for StoreTokenError {}
+// we impl this trait which has a default implementation
+// to return a 500 internal server error
+// the idea is this will help us to propogate error messages with useful info attached,
+// which have been passed via a '?' and without this would lose the useful info
+
+// we write explicit executions of display and debug - rather than derived ones
 impl std::fmt::Display for StoreTokenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "A database error was encountered while \
-             trying to store a subscription token."
+        trying to store a subscription token."
         )
     }
+}
+
+impl std::fmt::Debug for StoreTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // defined below - backtracks through error chain to find the true source
+        error_chain_fmt(self, f)
+    }
+}
+
+// we can also impl source - this is a trait of std:error::Error
+// and gives us access to the source of the error, fromt he receiver of the error
+impl std::error::Error for StoreTokenError {
+    // dyn is dynamically sized - very similar to generics but will be sized at runtime
+    // you use dyn when you don't know the concrete types at compile time
+    // as returning a reference, it requires a lifetime, which here is static
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0) // &sqlx::Error will be cast to &dyn Error
+    }
+}
+
+// general error fn that iterates over the whole chain of errors
+// backtracking through the source() fn on Error trait
+fn error_chain_fmt(
+    e: &impl std::error::Error,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    writeln!(f, "{}\n", e)?;
+    let mut current = e.source();
+    while let Some(cause) = current {
+        writeln!(f, "Caused by:\n\t{}", cause)?;
+        current = cause.source();
+    }
+    Ok(())
 }
 
 // handler for subscribe post requests - the fn is going to extract form data from a

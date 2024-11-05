@@ -192,7 +192,12 @@ async fn subscribe_fails_if_there_is_a_fatal_database_error() {
     // cannot get their implementation to print the log on windows
     // so forced to print the error message
     // call cargo t subscribe_fails_if_there_is_a_fatal_database_error -- --show-output
-    println!("{:?}", &response.text().await.unwrap());
+    //println!("{:?}", &response.text().await.unwrap());
+
+    // add to .cargo/.config
+    // [env]
+    // RUST_LOG="sqlx=error,info"
+    // TEST_LOG="true"
 
     // try on linux:
     // export RUST_LOG="sqlx=error,info"
