@@ -54,6 +54,7 @@ rand = { version = "0.8", features = ["std_rng"] }
 
 # error boilerplate generator
 thiserror = "1"
+anyhow = "1"
 
 # http requests
 [dependencies.reqwest]
