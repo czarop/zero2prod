@@ -1,11 +1,11 @@
-use actix_web::http::StatusCode;
-use anyhow::Context;
 use crate::{
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
     email_client::EmailClient,
     startup::ApplicationBaseUrl,
 };
+use actix_web::http::StatusCode;
 use actix_web::{web, HttpResponse, ResponseError};
+use anyhow::Context;
 use chrono::Utc;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
@@ -26,8 +26,7 @@ impl std::fmt::Display for StoreTokenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "A database error was encountered while \
-        trying to store a subscription token."
+            "A database error was encountered while trying to store a subscription token."
         )
     }
 }
@@ -52,7 +51,7 @@ impl std::error::Error for StoreTokenError {
 
 // general error fn that iterates over the whole chain of errors
 // backtracking through the source() fn on Error trait
-fn error_chain_fmt(
+pub fn error_chain_fmt(
     e: &impl std::error::Error,
     f: &mut std::fmt::Formatter<'_>,
 ) -> std::fmt::Result {
@@ -65,18 +64,20 @@ fn error_chain_fmt(
     Ok(())
 }
 
-
-// this macro makes all the error types and controls their source and from implementations
+// thiserror macro makes all the error types and controls their source and from implementations
 #[derive(thiserror::Error)]
 pub enum SubscribeError {
-    #[error("{0}")] //<-  the message that will be displayed. '0' means the first parameter of the declaration below, here 'String'
+    #[error("{0}")]
+    //<-  the message that will be displayed. '0' means the first parameter of the declaration below, here 'String'
     ValidationError(String),
     #[error(transparent)]
-    UnexpectedError (#[from] anyhow::Error) // <- we have 1 parameter 
-    // the Source means that std::Error can be a source of this error
-    // but we are going to print the String
-    // in map_error we now pass the 'e' and also a String that will have more information
-}
+    UnexpectedError(#[from] anyhow::Error), // <- we have 1 parameter , an anyhow::Error, and our error type can be generated from this
+} // also check out #[source]
+
+// anyhow::error converts the error returned by our methods into an anyhow::Error;
+// it enriches it with additional context around the intentions of the caller.
+// it can get context from any Result - via an extension trait - which is all taken care of.
+
 // define what is printed in debug log
 impl std::fmt::Debug for SubscribeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -203,10 +204,7 @@ pub async fn store_token(
         subscription_token,
         subscriber_id
     );
-    transaction.execute(query).await.map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        StoreTokenError(e)
-    })?;
+    transaction.execute(query).await.map_err(StoreTokenError)?;
     Ok(())
 }
 
@@ -270,11 +268,8 @@ pub async fn insert_subscriber(
         Utc::now()                    // timestamp
     );
 
-    transaction.execute(query).await.map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?; // Using the `?` operator to return early
-         // if the function failed, returning a sqlx::Error
+    transaction.execute(query).await?; // Using the `?` operator to return early
+
     Ok(subscriber_id)
 }
 

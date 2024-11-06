@@ -1,6 +1,68 @@
 use actix_web::{web, HttpResponse};
 use sqlx::PgPool;
 use uuid::Uuid;
+use crate::routes::subscriptions::error_chain_fmt;
+
+#[allow(dead_code)]
+pub struct RetrieveTokenError(sqlx::Error);
+
+impl std::fmt::Display for RetrieveTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "A database error was encountered while trying to retrieve a subscription token."
+        )
+    }
+}
+
+impl std::fmt::Debug for RetrieveTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl std::error::Error for RetrieveTokenError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
+#[derive(thiserror::Error)]
+pub enum SubscribeError {
+    #[error("{0}")]
+    //<-  the message that will be displayed. '0' means the first parameter of the declaration below, here 'String'
+    ValidationError(String),
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error), // <- we have 1 parameter , an anyhow::Error, and our error type can be generated from this
+} // also check out #[source]
+
+// anyhow::error converts the error returned by our methods into an anyhow::Error;
+// it enriches it with additional context around the intentions of the caller.
+// it can get context from any Result - via an extension trait - which is all taken care of.
+
+// define what is printed in debug log
+impl std::fmt::Debug for SubscribeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // go as far back in the error chain as you can to ID the source
+        error_chain_fmt(self, f)
+    }
+}
+// Response error is from Actix:web and we impl it so that we can use it with
+// that crate
+// note it has default implementation to return 500 internal server error
+// we override to but give different responses from each error type
+impl ResponseError for SubscribeError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            // bad request when email address can't be validated
+            SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST,
+            // otherwise internal server error
+            SubscribeError::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+
 
 // defines all the query parameters that we expect to see in the incoming request
 #[derive(serde::Deserialize)]
