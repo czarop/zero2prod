@@ -1,68 +1,26 @@
-use actix_web::{web, HttpResponse};
+use crate::routes::subscriptions::error_chain_fmt;
+use actix_web::{http::StatusCode, web, HttpResponse, ResponseError};
+use anyhow::Context;
 use sqlx::PgPool;
 use uuid::Uuid;
-use crate::routes::subscriptions::error_chain_fmt;
-
-#[allow(dead_code)]
-pub struct RetrieveTokenError(sqlx::Error);
-
-impl std::fmt::Display for RetrieveTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "A database error was encountered while trying to retrieve a subscription token."
-        )
-    }
-}
-
-impl std::fmt::Debug for RetrieveTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
-
-impl std::error::Error for RetrieveTokenError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.0)
-    }
-}
 
 #[derive(thiserror::Error)]
-pub enum SubscribeError {
-    #[error("{0}")]
-    //<-  the message that will be displayed. '0' means the first parameter of the declaration below, here 'String'
-    ValidationError(String),
+pub enum ConfirmError {
     #[error(transparent)]
-    UnexpectedError(#[from] anyhow::Error), // <- we have 1 parameter , an anyhow::Error, and our error type can be generated from this
-} // also check out #[source]
+    ConfirmSubscriberFailedError(#[from] anyhow::Error),
+}
 
-// anyhow::error converts the error returned by our methods into an anyhow::Error;
-// it enriches it with additional context around the intentions of the caller.
-// it can get context from any Result - via an extension trait - which is all taken care of.
-
-// define what is printed in debug log
-impl std::fmt::Debug for SubscribeError {
+impl std::fmt::Debug for ConfirmError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // go as far back in the error chain as you can to ID the source
         error_chain_fmt(self, f)
     }
 }
-// Response error is from Actix:web and we impl it so that we can use it with
-// that crate
-// note it has default implementation to return 500 internal server error
-// we override to but give different responses from each error type
-impl ResponseError for SubscribeError {
+
+impl ResponseError for ConfirmError {
     fn status_code(&self) -> StatusCode {
-        match self {
-            // bad request when email address can't be validated
-            SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST,
-            // otherwise internal server error
-            SubscribeError::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        }
+        return StatusCode::INTERNAL_SERVER_ERROR;
     }
 }
-
-
 
 // defines all the query parameters that we expect to see in the incoming request
 #[derive(serde::Deserialize)]
@@ -73,22 +31,22 @@ pub struct Parameters {
 #[tracing::instrument(name = "Confirm a pending subscriber", skip(parameters, pool))]
 // If the deserialize fails from web::Query
 // a 400 Bad Request is automatically returned to the caller
-pub async fn confirm(parameters: web::Query<Parameters>, pool: web::Data<PgPool>) -> HttpResponse {
+pub async fn confirm(
+    parameters: web::Query<Parameters>,
+    pool: web::Data<PgPool>,
+) -> Result<HttpResponse, ConfirmError> {
     //get the subscriber_id from the subscription token
     let id = match get_subscriber_id_from_token(&pool, &parameters.subscription_token).await {
-        Ok(id) => id,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Ok(inner_id) => inner_id,
+        Err(e) => return Err(e),
     };
 
-    match id {
-        None => HttpResponse::Unauthorized().finish(),
-        Some(subscriber_id) => {
-            if confirm_subscriber(&pool, subscriber_id).await.is_err() {
-                return HttpResponse::InternalServerError().finish();
-            } else {
-                HttpResponse::Ok().finish()
-            }
-        }
+    // although it's OK above, it could in theory still be none
+    let id_ok = id.ok_or(anyhow::anyhow!("No user associated with the token"))?;
+
+    match confirm_subscriber(&pool, id_ok).await {
+        Ok(_) => Ok(HttpResponse::Ok().finish()),
+        Err(e) => Err(e),
     }
 }
 
@@ -103,7 +61,7 @@ pub async fn confirm(parameters: web::Query<Parameters>, pool: web::Data<PgPool>
 pub async fn get_subscriber_id_from_token(
     pool: &PgPool,
     subscription_token: &str,
-) -> Result<Option<Uuid>, sqlx::Error> {
+) -> Result<Option<Uuid>, ConfirmError> {
     let result = sqlx::query!(
         "SELECT subscriber_id FROM subscription_tokens \
         WHERE subscription_token = $1",
@@ -111,10 +69,7 @@ pub async fn get_subscriber_id_from_token(
     )
     .fetch_optional(pool)
     .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    .context("No subscriber id associated with this token.")?;
 
     Ok(result.map(|r| r.subscriber_id))
 }
@@ -126,16 +81,13 @@ pub async fn get_subscriber_id_from_token(
 ///
 /// This function will return an error if cannot connect to db.
 #[tracing::instrument(name = "Mark subscriber as confirmed", skip(subscriber_id, pool))]
-pub async fn confirm_subscriber(pool: &PgPool, subscriber_id: Uuid) -> Result<(), sqlx::Error> {
+pub async fn confirm_subscriber(pool: &PgPool, subscriber_id: Uuid) -> Result<(), ConfirmError> {
     sqlx::query!(
         r#"UPDATE subscriptions SET status = 'confirmed' WHERE id = $1"#,
         subscriber_id
     )
     .execute(pool)
     .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query {:?}", e);
-        e
-    })?;
+    .context("Failed to confirm the subscriber in the database.")?;
     Ok(())
 }
