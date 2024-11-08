@@ -146,6 +146,8 @@ pub async fn subscribe(
     // with email_client and PgPool in the Run fn in Startup.rs
     base_url: web::Data<ApplicationBaseUrl>, // address for the confirmation email
 ) -> Result<HttpResponse, SubscribeError> {
+    println!("{}", form.email);
+
     // web::form is a wrapper around FormData (Form<FormData>) -
     // access the formdata by form.0
     let new_subscriber = form.0.try_into().map_err(SubscribeError::ValidationError)?;

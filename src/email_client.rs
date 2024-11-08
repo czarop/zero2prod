@@ -40,8 +40,6 @@ impl EmailClient {
         // let url = reqwest::Url::parse(&base_url)
         // .expect(format!("Could not parse url {}", base_url).as_str());
 
-        // println!("{}", url);
-
         // create the email client wrapper
         Self {
             http_client,
@@ -74,7 +72,15 @@ impl EmailClient {
 
         // this is firing to https://api.postmarkapp.com/email
         let url = format!("{}/email", self.base_url);
-        println!("{}", self.auth_token.expose_secret());
+
+        println!(
+            "{}\n {}\n {}",
+            url.as_str(),
+            self.sender.as_ref(),
+            self.auth_token.expose_secret().as_str()
+        );
+        println!("{}\n {}", recipient.as_ref(), html_content);
+
         let request_body = SendEmailRequest {
             from: self.sender.as_ref(), // we could put these as 'to_owned' and have them as Strings
             to: recipient.as_ref(),
@@ -85,6 +91,8 @@ impl EmailClient {
 
         self.http_client
             .post(&url)
+            // .header("Accept", "application/json")
+            // .header("Content-Type", "application/json")
             .header("X-Postmark-Server-Token", self.auth_token.expose_secret())
             .json(&request_body)
             .send()
