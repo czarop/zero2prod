@@ -119,6 +119,7 @@ pub fn run(
             .route("/health_check", web::get().to(routes::health_check))
             .route("/subscriptions", web::post().to(routes::subscribe))
             .route("/subscriptions/confirm", web::get().to(routes::confirm))
+            .route("/newsletters", web::post().to(routes::publish_newsletter))
             // note you can chain together commands - if the first is not met it will
             // continue to the second - both path template and guards must be satisfied
             // this is the Builder pattern
