@@ -1,8 +1,9 @@
+use crate::domain::SubscriberEmail;
 use crate::{email_client::EmailClient, routes::error_chain_fmt};
 use actix_web::http::StatusCode;
 use actix_web::{web, HttpResponse, ResponseError};
-use sqlx::PgPool;
 use anyhow::Context;
+use sqlx::PgPool;
 
 // a couple of structs to deserialise a newsletter email -
 // These will convert an incoming html message to the API
@@ -20,16 +21,25 @@ pub struct Content {
 }
 
 struct ConfirmedSubscriber {
-    email: String,
+    email: SubscriberEmail,
 }
 
 #[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]
 async fn get_confirmed_subscribers(
     pool: &PgPool,
-) -> Result<Vec<ConfirmedSubscriber>, anyhow::Error> {
+    // We are returning a `Vec` of `Result`s in the happy case.
+    // This allows the caller to bubble up errors due to network issues or other
+    // transient failures using the `?` operator, while the compiler
+    // forces them to handle the subtler mapping error.
+) -> Result<Vec<Result<ConfirmedSubscriber, anyhow::Error>>, anyhow::Error> {
+    // we'll collect from sqlx into a basic String
+    struct Row {
+        email: String,
+    }
+
     // query_as! maps the retrieved rows to the type specified as its first argument
-    let rows = sqlx::query_as!(
-        ConfirmedSubscriber,
+    let confirmed_subscribers = sqlx::query_as!(
+        Row,
         r#"
         SELECT email
         FROM subscriptions
@@ -37,8 +47,15 @@ async fn get_confirmed_subscribers(
         "#,
     )
     .fetch_all(pool)
-    .await?;
-    Ok(rows)
+    .await?
+    .into_iter()
+    // No longer using `filter_map`!
+    .map(|r| match SubscriberEmail::parse(r.email) {
+        Ok(email) => Ok(ConfirmedSubscriber { email }),
+        Err(error) => Err(anyhow::anyhow!(error)),
+    })
+    .collect();
+    Ok(confirmed_subscribers)
 }
 
 // gets a list of confirmed subscriber email addresses
@@ -49,19 +66,33 @@ pub async fn publish_newsletter(
     email_client: web::Data<EmailClient>,
 ) -> Result<HttpResponse, PublishError> {
     let subscribers = get_confirmed_subscribers(&pool).await?;
-    
+
     for subscriber in subscribers {
-        email_client
-            .send_email(
-                subscriber.email,
-                &body.title,
-                &body.content.html,
-                &body.content.text,
-            )
-            .await
-            .with_context(|| { // in the case of an error, this closure will be run to add context to the error
-                format!("Failed to send newsletter issue to {}", subscriber.email)
-            })?;
+        match subscriber {
+            Ok(subscriber) => {
+                email_client
+                    .send_email(
+                        &subscriber.email,
+                        &body.title,
+                        &body.content.html,
+                        &body.content.text,
+                    )
+                    .await
+                    .with_context(|| {
+                        // in the case of an error, this closure will be run to add context to the error
+                        format!("Failed to send newsletter issue to {}", subscriber.email)
+                    })?;
+            }
+            Err(error) => {
+                tracing::warn!(
+                // We record the error chain as a structured field
+                // on the log record.
+                error.cause_chain = ?error,
+                "Skipping a confirmed subscriber. \
+                Their stored contact details are invalid",
+                );
+            }
+        }
     }
     Ok(HttpResponse::Ok().finish())
 }

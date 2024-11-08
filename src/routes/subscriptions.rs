@@ -240,7 +240,7 @@ pub async fn send_confirmation_email(
     // send a confirmation email to the new subscriber
     email_client
         .send_email(
-            new_subscriber.email,
+            &new_subscriber.email,
             "Welcome!!",
             html_body,
             plain_text_body,
