@@ -1,8 +1,13 @@
 use crate::domain::SubscriberEmail;
 use crate::{email_client::EmailClient, routes::error_chain_fmt};
-use actix_web::http::StatusCode;
-use actix_web::{web, HttpResponse, ResponseError};
+use actix_web::http::{
+    header::{HeaderMap, HeaderValue},
+    StatusCode,
+};
+use actix_web::{web, HttpRequest, HttpResponse, ResponseError};
 use anyhow::Context;
+use base64::Engine;
+use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
 
 // a couple of structs to deserialise a newsletter email -
@@ -58,15 +63,41 @@ async fn get_confirmed_subscribers(
     Ok(confirmed_subscribers)
 }
 
+
+// create a new 'span' around this fn, so we can add the user_id
+// to logs
+#[tracing::instrument(
+    name = "Publish a newsletter",
+    skip(body, pool, email_client, request),
+    fields(
+        username=tracing::field::Empty, // these will be filled in during the fn
+        user_id=tracing::field::Empty,
+    ),
+)]
 // gets a list of confirmed subscriber email addresses
 // the body and pool will be passed in the application context from main
 pub async fn publish_newsletter(
     body: web::Json<BodyData>,
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
+    request: HttpRequest, // the request triggering the call
 ) -> Result<HttpResponse, PublishError> {
+    // check credentials in request headers are ok before proceeding
+    let credentials = basic_authentication(request.headers()).map_err(PublishError::AuthError)?;
+    // record in tracing log (see above)
+    tracing::Span::current().record(
+        "username",
+        tracing::field::display(&credentials.username)
+    );
+    // get the user id for this username fromt he sqlx table
+    let user_id = validate_credentials(credentials, &pool).await?;
+    // record in log
+    tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
+
+    // get our list of confirmed subscribers
     let subscribers = get_confirmed_subscribers(&pool).await?;
 
+    // fire the emails... one by one
     for subscriber in subscribers {
         match subscriber {
             Ok(subscriber) => {
@@ -99,7 +130,9 @@ pub async fn publish_newsletter(
 
 #[derive(thiserror::Error)]
 pub enum PublishError {
-    #[error(transparent)]
+    #[error("Authentication Failed")]
+    AuthError(#[source] anyhow::Error),
+    #[error(transparent)] // a transparent error gets its message from context
     UnexpectedError(#[from] anyhow::Error),
 }
 // Same logic to get the full error chain on `Debug`
@@ -109,9 +142,94 @@ impl std::fmt::Debug for PublishError {
     }
 }
 impl ResponseError for PublishError {
-    fn status_code(&self) -> StatusCode {
+    fn error_response(&self) -> HttpResponse {
         match self {
-            PublishError::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            PublishError::UnexpectedError(_) => {
+                HttpResponse::new(StatusCode::INTERNAL_SERVER_ERROR)
+            }
+            PublishError::AuthError(_) => {
+                let mut response = HttpResponse::new(StatusCode::UNAUTHORIZED);
+                // create headers for the error response
+                let header_value = HeaderValue::from_str(r#"Basic realm="publish""#).unwrap();
+                // add the headers
+                response
+                    .headers_mut()
+                    .insert(actix_web::http::header::WWW_AUTHENTICATE, header_value);
+
+                response
+            }
         }
     }
+}
+
+struct Credentials {
+    username: String,
+    password: Secret<String>,
+}
+
+fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
+    // The header value, if present, must be a valid UTF8 string
+    let header_value = headers
+        .get("Authorization")
+        .context("The 'Authorization' header was missing")?
+        .to_str()
+        .context("The 'Authorization' header was not a valid UTF8 string.")?;
+
+    let base64encoded_segment = header_value
+        .strip_prefix("Basic ")
+        .context("The authorization scheme was not 'Basic'.")?;
+    let decoded_bytes = base64::engine::general_purpose::STANDARD
+        .decode(base64encoded_segment)
+        .context("Failed to base64-decode 'Basic' credentials.")?;
+    let decoded_credentials = String::from_utf8(decoded_bytes)
+        .context("The decoded credential string is not valid UTF8.")?;
+
+    // Split into two segments, using ':' as delimiter
+    let mut credentials = decoded_credentials.splitn(2, ':');
+    let username = credentials
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("A username must be provided in 'Basic' auth."))?
+        .to_string();
+
+    let password = credentials
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("A password must be provided in 'Basic' auth."))?
+        .to_string();
+
+    Ok(Credentials {
+        username,
+        password: Secret::new(password),
+    })
+}
+
+async fn validate_credentials(
+    credentials: Credentials,
+    pool: &PgPool,
+) -> Result<uuid::Uuid, PublishError> {
+    // get user_id from user table if it matches user and password
+    // passed out as a record (ie a row)
+    // we use fetch_optional - which gives a single (first) row that matches
+    let user_id = sqlx::query!(
+        r#"
+        SELECT user_id
+        FROM users
+        WHERE username = $1 AND password = $2
+        "#,
+        credentials.username,
+        credentials.password.expose_secret()
+    )
+    
+    .fetch_optional(pool)
+    .await
+    .context("Failed to perform a query to validate auth credentials.")
+    .map_err(PublishError::UnexpectedError)?;
+
+    // get the user id from the record - or error if none
+    user_id
+        .map(|row| row.user_id)
+        // if we can't find - we create an anyhow::Error with attached context
+        // because we can't make a new PublishError directly - we need to pass it 
+        // another error type, or convert into it
+        .ok_or_else(|| anyhow::anyhow!("Invalid username or password."))
+        .map_err(PublishError::AuthError) // switch the error type explicitly
 }

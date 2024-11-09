@@ -79,12 +79,25 @@ impl TestApp {
     }
 
     pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
+
+        let (username, password) = self.test_user().await;
+
         reqwest::Client::new()
             .post(&format!("{}/newsletters", &self.address))
+            .basic_auth(username, Some(password))
             .json(&body)
             .send()
             .await
             .expect("Failed to execute request.")
+    }
+
+    // getter for the single test user_id inserted into the user_id db
+    pub async fn test_user(&self) -> (String, String) {
+        let row = sqlx::query!("SELECT username, password FROM users LIMIT 1")
+            .fetch_one(&self.db_pool)
+            .await
+            .expect("Failed to retrieve the test user from db");
+        (row.username, row.password)
     }
 }
 
@@ -127,12 +140,17 @@ pub async fn spawn_app() -> TestApp {
 
     let address = format!("http://localhost:{}", application_port);
 
-    TestApp {
+    let test_app = TestApp {
         address,
         db_pool: get_connection_pool(&configuration.database),
         email_server,
         port: application_port,
-    }
+    };
+
+    // add a fake user_id and password to the users db
+    add_test_user(&test_app.db_pool).await;
+
+    test_app
 }
 
 pub async fn configure_database(config: &configuration::DatabaseSettings) -> PgPool {
@@ -163,6 +181,20 @@ pub async fn configure_database(config: &configuration::DatabaseSettings) -> PgP
         .expect("Failed to migrate db");
 
     connection_pool
+}
+
+// add a test user to the user_id database table
+async fn add_test_user(pool: &PgPool){
+    sqlx::query!(
+        "INSERT INTO users (user_id, username, password)
+        VALUES ($1, $2, $3)",
+        Uuid::new_v4(),
+        Uuid::new_v4().to_string(),
+        Uuid::new_v4().to_string(),
+    )
+    .execute(pool)
+    .await
+    .expect("Failed to create test user.");
 }
 
 /// Confirmation links embedded in the request to the email API.
