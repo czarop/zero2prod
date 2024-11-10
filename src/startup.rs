@@ -115,8 +115,10 @@ pub fn run(
             // anything after the / is termed 'name', which is used in the
             // handler fn - this is called templating, but is not req.
             .wrap(TracingLogger::default()) //we wrap the App in a logger - we need an implementation of the Log Trait to receive - done in main!
-            .route("/", web::get().to(routes::greet))
+            .route("/", web::get().to(routes::home))
             .route("/health_check", web::get().to(routes::health_check))
+            .route("/login", web::get().to(routes::login_form))
+            .route("/login", web::post().to(routes::login))
             .route("/subscriptions", web::post().to(routes::subscribe))
             .route("/subscriptions/confirm", web::get().to(routes::confirm))
             .route("/newsletters", web::post().to(routes::publish_newsletter))

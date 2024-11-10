@@ -1,4 +1,5 @@
 use crate::domain::SubscriberEmail;
+use crate::telemetry::spawn_blocking_with_tracing;
 use crate::{email_client::EmailClient, routes::error_chain_fmt};
 use actix_web::http::{
     header::{HeaderMap, HeaderValue},
@@ -10,7 +11,6 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use base64::Engine;
 use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
-use crate::telemetry::spawn_blocking_with_tracing;
 
 // a couple of structs to deserialise a newsletter email -
 // These will convert an incoming html message to the API
@@ -205,12 +205,30 @@ async fn validate_credentials(
     credentials: Credentials,
     pool: &PgPool,
 ) -> Result<uuid::Uuid, PublishError> {
-    // we need to retrieve a 'SALT' from the user table before hashing
-    // retrieve the row for this user ID
-    let (user_id, expected_password_hash) = get_stored_credentials(&credentials.username, &pool)
-        .await
-        .map_err(PublishError::UnexpectedError)?
-        .ok_or_else(|| PublishError::AuthError(anyhow::anyhow!("Unknown username.")))?;
+    // first we generate some fake, invalid credentials.
+    // if we match real ones in the db, these will be overwritten
+    // if not, we will go through the whole process with the fake
+    // credentials, only failing at the end. This helps stop timing
+    // differences between valid and invalid credentials -which could be used
+    // to find valid user_id's
+    let mut user_id = None;
+    let mut expected_password_hash = Secret::new(
+        "$argon2id$v=19$m=15000,t=2,p=1$\
+gZiV/M1gPc22ElAH/Jh1Hw$\
+CWOrkoo7oJBQ/iyh7uJ0LO2aLEfrHwTWllSAxT0zRno"
+            .to_string(),
+    );
+
+    // retrieve the row for this user ID and overwite user_id and expected_pw_hash
+    // if they are valid
+    if let Some((stored_user_id, stored_password_hash)) =
+        get_stored_credentials(&credentials.username, &pool)
+            .await
+            .map_err(PublishError::UnexpectedError)?
+    {
+        user_id = Some(stored_user_id);
+        expected_password_hash = stored_password_hash;
+    }
 
     // finally, verify the password as so
     // we do this inside a seperate thread - as it's a slow, CPU intensive
@@ -229,7 +247,9 @@ async fn validate_credentials(
     .context("Failed to spawn blocking task.")
     .map_err(PublishError::UnexpectedError)??;
 
-    Ok(user_id)
+    // ok_or_else checks it's wrapped in Some
+    // it's only Some() if it was found in the db
+    user_id.ok_or_else(|| PublishError::AuthError(anyhow::anyhow!("Unknown username.")))
 }
 
 #[tracing::instrument(
