@@ -58,6 +58,8 @@ anyhow = "1"
 
 # credentials
 base64 = "0.22"
+sha3="0.9"
+argon2 = { version = "0.5", features = ["std"] }
 
 # http requests
 [dependencies.reqwest]

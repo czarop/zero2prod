@@ -1,3 +1,5 @@
+use argon2::password_hash::SaltString;
+use argon2::{Argon2, PasswordHasher};
 use secrecy::Secret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::sync::LazyLock;
@@ -30,6 +32,7 @@ pub struct TestApp {
     pub db_pool: PgPool, // connection to the db - a pool of connections for async queries
     pub email_server: MockServer, // a fake email server - we will check if emails are sent and what they contain
     pub port: u16,                // we store the port of the app locally for testing purposes
+    pub test_user: TestUser,
 }
 
 impl TestApp {
@@ -79,8 +82,8 @@ impl TestApp {
     }
 
     pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
-
-        let (username, password) = self.test_user().await;
+        let username = &self.test_user.username;
+        let password = &self.test_user.password;
 
         reqwest::Client::new()
             .post(&format!("{}/newsletters", &self.address))
@@ -90,14 +93,44 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+}
 
-    // getter for the single test user_id inserted into the user_id db
-    pub async fn test_user(&self) -> (String, String) {
-        let row = sqlx::query!("SELECT username, password FROM users LIMIT 1")
-            .fetch_one(&self.db_pool)
-            .await
-            .expect("Failed to retrieve the test user from db");
-        (row.username, row.password)
+// a fake user of the API
+pub struct TestUser {
+    pub user_id: Uuid,
+    pub username: String,
+    pub password: String,
+}
+impl TestUser {
+    pub fn generate() -> Self {
+        Self {
+            user_id: Uuid::new_v4(),
+            username: Uuid::new_v4().to_string(),
+            password: Uuid::new_v4().to_string(),
+        }
+    }
+    // store myself in the user_id db
+    async fn store(&self, pool: &PgPool) {
+        // allow us to hash in the same way when verfying
+        let salt = SaltString::generate(&mut rand::thread_rng());
+
+        // We don't care about the exact Argon2 parameters here
+        // given that it's for testing purposes!
+        let password_hash = Argon2::default()
+            .hash_password(self.password.as_bytes(), &salt)
+            .unwrap()
+            .to_string();
+
+        sqlx::query!(
+            "INSERT INTO users (user_id, username, password_hash)
+        VALUES ($1, $2, $3)",
+            self.user_id,
+            self.username,
+            password_hash,
+        )
+        .execute(pool)
+        .await
+        .expect("Failed to store test user.");
     }
 }
 
@@ -145,10 +178,11 @@ pub async fn spawn_app() -> TestApp {
         db_pool: get_connection_pool(&configuration.database),
         email_server,
         port: application_port,
+        test_user: TestUser::generate(),
     };
 
     // add a fake user_id and password to the users db
-    add_test_user(&test_app.db_pool).await;
+    test_app.test_user.store(&test_app.db_pool).await;
 
     test_app
 }
@@ -181,20 +215,6 @@ pub async fn configure_database(config: &configuration::DatabaseSettings) -> PgP
         .expect("Failed to migrate db");
 
     connection_pool
-}
-
-// add a test user to the user_id database table
-async fn add_test_user(pool: &PgPool){
-    sqlx::query!(
-        "INSERT INTO users (user_id, username, password)
-        VALUES ($1, $2, $3)",
-        Uuid::new_v4(),
-        Uuid::new_v4().to_string(),
-        Uuid::new_v4().to_string(),
-    )
-    .execute(pool)
-    .await
-    .expect("Failed to create test user.");
 }
 
 /// Confirmation links embedded in the request to the email API.
