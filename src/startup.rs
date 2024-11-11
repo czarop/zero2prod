@@ -2,6 +2,7 @@ use crate::configuration::DatabaseSettings;
 use crate::configuration::Settings;
 use crate::{email_client::EmailClient, routes};
 use actix_web::{dev::Server, web, App, HttpServer};
+use secrecy::Secret;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
@@ -52,6 +53,7 @@ impl Application {
             connection_pool,
             email_client,
             configuration.application.base_url,
+            configuration.application.hmac_secret,
         )?;
         Ok(Self { port, server })
     }
@@ -88,6 +90,7 @@ pub fn run(
     db_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
+    hmac_secret: Secret<String>,
 ) -> Result<Server, std::io::Error> {
     // argument TcpListener allows us to find the port that is assigned
     // to this server by the OS - only needed if you are using a random port (port 0)
@@ -125,11 +128,14 @@ pub fn run(
             // note you can chain together commands - if the first is not met it will
             // continue to the second - both path template and guards must be satisfied
             // this is the Builder pattern
+            // note you can only have one of each type of these - if need more
+            // make custom types and group them
             .app_data(db_pool.clone()) // passes the connection to db as part of an 'application state'
             // this attaches extra info to the http request and is going to allow us to send updates to the db
             // you can access things attached here down the line with web::Data
             .app_data(email_client.clone()) // same for the email client
             .app_data(base_url.clone()) // same for the url for conf. email
+            .app_data(web::Data::new(HmacSecret(hmac_secret.clone()))) // a secret appended to http requests so we can check it's ours
     })
     .listen(listener)? // binds to the port identified by listener
     //.bind("127.0.0.1:8000")? // use this or listen - this binds the server to specific socket address
@@ -140,3 +146,6 @@ pub fn run(
 
     Ok(server)
 }
+
+#[derive(Clone)]
+pub struct HmacSecret(pub Secret<String>);
