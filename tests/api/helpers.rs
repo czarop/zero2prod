@@ -38,7 +38,7 @@ pub struct TestApp {
 impl TestApp {
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
         reqwest::Client::new()
-            .post(&format!("{}/subscriptions", &self.address))
+            .post(format!("{}/subscriptions", &self.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
             .send()
@@ -75,8 +75,8 @@ impl TestApp {
         };
 
         // get the html and plain text links - passed into the closure above
-        let html = get_link(&body["HtmlBody"].as_str().unwrap());
-        let plain_text = get_link(&body["TextBody"].as_str().unwrap());
+        let html = get_link(body["HtmlBody"].as_str().unwrap());
+        let plain_text = get_link(body["TextBody"].as_str().unwrap());
 
         ConfirmationLinks { html, plain_text }
     }
@@ -86,7 +86,7 @@ impl TestApp {
         let password = &self.test_user.password;
 
         reqwest::Client::new()
-            .post(&format!("{}/newsletters", &self.address))
+            .post(format!("{}/newsletters", &self.address))
             .basic_auth(username, Some(password))
             .json(&body)
             .send()
@@ -172,7 +172,7 @@ pub async fn spawn_app() -> TestApp {
 
     let application_port = application.port();
 
-    let _ = tokio::spawn(application.run_until_stopped());
+    tokio::spawn(application.run_until_stopped());
 
     let address = format!("http://localhost:{}", application_port);
 

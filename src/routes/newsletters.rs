@@ -94,7 +94,7 @@ pub async fn publish_newsletter(
             AuthError::UnexpectedError(_) => PublishError::UnexpectedError(e.into()),
         })?;
     // record in log
-    tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
+    tracing::Span::current().record("user_id", tracing::field::display(&user_id));
 
     // get our list of confirmed subscribers
     let subscribers = get_confirmed_subscribers(&pool).await?;

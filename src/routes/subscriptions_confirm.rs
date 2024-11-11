@@ -18,7 +18,7 @@ impl std::fmt::Debug for ConfirmError {
 
 impl ResponseError for ConfirmError {
     fn status_code(&self) -> StatusCode {
-        return StatusCode::INTERNAL_SERVER_ERROR;
+        StatusCode::INTERNAL_SERVER_ERROR
     }
 }
 
