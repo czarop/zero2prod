@@ -1,7 +1,11 @@
 use crate::configuration::DatabaseSettings;
 use crate::configuration::Settings;
 use crate::{email_client::EmailClient, routes};
+use actix_web::cookie::Key;
 use actix_web::{dev::Server, web, App, HttpServer};
+use actix_web_flash_messages::storage::CookieMessageStore;
+use actix_web_flash_messages::FlashMessagesFramework;
+use secrecy::ExposeSecret;
 use secrecy::Secret;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
@@ -106,18 +110,22 @@ pub fn run(
     // this is the address we can the confirmation link to navigate to
     let base_url = web::Data::new(ApplicationBaseUrl(base_url));
 
+    // for signed cookies, we make a location to store cookies, and register a message framework
+    // this is HMAC tagginging key - defined in config base.yaml
+    let signing_key = Key::from(hmac_secret.expose_secret().as_bytes());
+    let message_store = CookieMessageStore::builder(signing_key).build();
+    let message_framework = FlashMessagesFramework::builder(message_store).build();
+
     // create a server - this binds to socket and has options for
     // security etc, but needs an App to do something - passed in a closure
     let server = HttpServer::new(move || {
         // the App routes http requests coming to the server to the
         // greet handler function above
         App::new()
-            // route() combines a path, a set of guards, and a handler
-            // here the guard is 'is it a GET request', handler is 'greet'
-            // route takes a path (a string) which can have named fields - here
-            // anything after the / is termed 'name', which is used in the
-            // handler fn - this is called templating, but is not req.
+            // register 'middleware'
             .wrap(TracingLogger::default()) //we wrap the App in a logger - we need an implementation of the Log Trait to receive - done in main!
+            .wrap(message_framework.clone()) // for secure cookies
+            // define paths
             .route("/", web::get().to(routes::home))
             .route("/health_check", web::get().to(routes::health_check))
             .route("/login", web::get().to(routes::login_form))
@@ -125,20 +133,16 @@ pub fn run(
             .route("/subscriptions", web::post().to(routes::subscribe))
             .route("/subscriptions/confirm", web::get().to(routes::confirm))
             .route("/newsletters", web::post().to(routes::publish_newsletter))
-            // note you can chain together commands - if the first is not met it will
-            // continue to the second - both path template and guards must be satisfied
-            // this is the Builder pattern
+            // define 'application state' - data that will be passed with the request and
+            // accessible by having an argument web::Data<type> on your route receiver function
             // note you can only have one of each type of these - if need more
-            // make custom types and group them
+            // make custom types and wrap them
             .app_data(db_pool.clone()) // passes the connection to db as part of an 'application state'
-            // this attaches extra info to the http request and is going to allow us to send updates to the db
-            // you can access things attached here down the line with web::Data
             .app_data(email_client.clone()) // same for the email client
             .app_data(base_url.clone()) // same for the url for conf. email
             .app_data(web::Data::new(HmacSecret(hmac_secret.clone()))) // a secret appended to http requests so we can check it's ours
     })
     .listen(listener)? // binds to the port identified by listener
-    //.bind("127.0.0.1:8000")? // use this or listen - this binds the server to specific socket address
     .run(); // run the server
 
     //.await // Don't call await here - if you want to run other tasks async, return the server.

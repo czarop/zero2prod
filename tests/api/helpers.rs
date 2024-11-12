@@ -1,5 +1,6 @@
 use argon2::password_hash::SaltString;
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, Version};
+use reqwest::Request;
 use secrecy::Secret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::sync::LazyLock;
@@ -33,12 +34,13 @@ pub struct TestApp {
     pub email_server: MockServer, // a fake email server - we will check if emails are sent and what they contain
     pub port: u16,                // we store the port of the app locally for testing purposes
     pub test_user: TestUser,
+    pub api_client: reqwest::Client, // the http request client
 }
 
 impl TestApp {
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
-        reqwest::Client::new()
-            .post(format!("{}/subscriptions", &self.address))
+        self.api_client
+            .post(&format!("{}/subscriptions", &self.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
             .send()
@@ -85,8 +87,8 @@ impl TestApp {
         let username = &self.test_user.username;
         let password = &self.test_user.password;
 
-        reqwest::Client::new()
-            .post(format!("{}/newsletters", &self.address))
+        self.api_client
+            .post(&format!("{}/newsletters", &self.address))
             .basic_auth(username, Some(password))
             .json(&body)
             .send()
@@ -99,18 +101,23 @@ impl TestApp {
     where
         Body: serde::Serialize,
     {
-        reqwest::Client::builder()
-            // specify redirect policy of none - otherwise it redirects back to login
-            // when error and this returns a 200
-            // because that's the behaviour specified in our headers
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .unwrap()
+        self.api_client
             .post(&format!("{}/login", &self.address))
             .form(body)
             .send()
             .await
             .expect("Failed to execute request.")
+    }
+
+    pub async fn get_login_html(&self) -> String {
+        self.api_client
+            .get(&format!("{}/login", &self.address))
+            .send()
+            .await
+            .expect("Fail to execute request.")
+            .text() // decodes the response body in full
+            .await
+            .unwrap()
     }
 }
 
@@ -195,12 +202,23 @@ pub async fn spawn_app() -> TestApp {
 
     let address = format!("http://localhost:{}", application_port);
 
+    let client = reqwest::Client::builder()
+        // specify redirect policy of none - otherwise it redirects back to login
+        // when error and this returns a 200
+        // because that's the behaviour specified in our headers
+        .redirect(reqwest::redirect::Policy::none())
+        // store and propogate cookies - ie send them back to the GET request from a POST request
+        .cookie_store(true)
+        .build()
+        .unwrap();
+
     let test_app = TestApp {
         address,
         db_pool: get_connection_pool(&configuration.database),
         email_server,
         port: application_port,
         test_user: TestUser::generate(),
+        api_client: client,
     };
 
     // add a fake user_id and password to the users db
