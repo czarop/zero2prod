@@ -41,38 +41,50 @@ pub async fn login(
                 .insert_header((LOCATION, "/"))
                 .finish())
         }
+        // if error, propogate it with context
         Err(e) => {
             let e = match e {
                 AuthError::InvalidCredentials(_) => LoginError::AuthError(e.into()),
                 AuthError::UnexpectedError(_) => LoginError::UnexpectedError(e.into()),
             };
 
-            // define what went wrong in a string to be displayed to user
-            // we encode this to prevent manipulation - this means no
-            // new html characters can be inserted
-            let query_string = format!("error={}", urlencoding::Encoded::new(e.to_string()));
-
-            // in order to be sure no-one interferes with the http request
-            // we tag it with an encoded secret (an hmac tag)
-            // this will be verified...
-            let hmac_tag = {
-                let mut mac =
-                    Hmac::<sha2::Sha256>::new_from_slice(secret.0.expose_secret().as_bytes())
-                        .unwrap();
-                mac.update(query_string.as_bytes());
-                mac.finalize().into_bytes()
-            };
-
             let response = HttpResponse::SeeOther()
-                .insert_header((
-                    LOCATION, // we redirect back to the login page but with a message attached
-                    format!("/login?{query_string}&tag={hmac_tag:x}"), // and the hmac tag
-                ))
+                .insert_header((LOCATION, "/login"))
                 .finish();
-            // internal error allows us to add the original error (Auth Error)
-            // and our http response
+
             Err(InternalError::from_response(e, response))
-        }
+        } // Err(e) => {
+          //     let e = match e {
+          //         AuthError::InvalidCredentials(_) => LoginError::AuthError(e.into()),
+          //         AuthError::UnexpectedError(_) => LoginError::UnexpectedError(e.into()),
+          //     };
+
+          //     // define what went wrong in a string to be displayed to user
+          //     // we encode this to prevent manipulation - this means no
+          //     // new html characters can be inserted
+          //     let query_string = format!("error={}", urlencoding::Encoded::new(e.to_string()));
+
+          //     // in order to be sure no-one interferes with the http request
+          //     // we tag it with an encoded secret (an hmac tag)
+          //     // this will be verified...
+          //     let hmac_tag = {
+          //         let mut mac =
+          //             Hmac::<sha2::Sha256>::new_from_slice(secret.0.expose_secret().as_bytes())
+          //                 .unwrap();
+          //         mac.update(query_string.as_bytes());
+          //         mac.finalize().into_bytes()
+          //     };
+
+          //     let response = HttpResponse::SeeOther()
+          //         .insert_header((
+          //             LOCATION, // we redirect back to the login page but with a message attached
+          //             format!("/login?{query_string}&tag={hmac_tag:x}"), // and the hmac tag
+          //         ))
+          //         .finish();
+          //     // internal error allows us to add the original error (Auth Error)
+          //     // and our http response
+          //     Err(InternalError::from_response(e, response))
+          // }
     }
 }
 

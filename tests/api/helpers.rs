@@ -93,6 +93,25 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+
+    // body is a generic type that can be deserialised
+    pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        reqwest::Client::builder()
+            // specify redirect policy of none - otherwise it redirects back to login
+            // when error and this returns a 200
+            // because that's the behaviour specified in our headers
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap()
+            .post(&format!("{}/login", &self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
 }
 
 // a fake user of the API
@@ -224,4 +243,10 @@ pub async fn configure_database(config: &configuration::DatabaseSettings) -> PgP
 pub struct ConfirmationLinks {
     pub html: reqwest::Url,
     pub plain_text: reqwest::Url,
+}
+
+// check where we're redirected to...
+pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
+    assert_eq!(response.status().as_u16(), 303);
+    assert_eq!(response.headers().get("Location").unwrap(), location);
 }

@@ -41,14 +41,14 @@ pub async fn login_form(
     secret: web::Data<HmacSecret>,
 ) -> HttpResponse {
     let error_html = match query {
-        // if no error, no problem!
+        // if the query cannot be parsed
         None => "".into(),
         // if there's an error it could be...
         Some(query) => match query.0.verify(&secret) {
-            // an legit error - maybe a wrong password or a database error
+            // a legit error - maybe a wrong password or a database error
             // in which case display the error message
             Ok(error) => {
-                // make sure the error message cannot be interviened and modified
+                // make sure the error message html cannot be interviened and modified
                 format!("<p><i>{}</i></p>", htmlescape::encode_minimal(&error))
             }
             // an error arising from hmac verification failure - someone tampered
