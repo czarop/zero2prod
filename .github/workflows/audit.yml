@@ -1,11 +1,10 @@
 name: Security audit
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - '**/Cargo.toml'
       - '**/Cargo.lock'
-      - '**/deny.toml'
 jobs:
   security_audit:
     runs-on: ubuntu-latest
