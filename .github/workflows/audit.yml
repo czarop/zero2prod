@@ -1,7 +1,10 @@
 name: Security audit
 on:
+  schedule:
+    - cron: '0 0 * * *'
   push:
-    branches: [master]
+    branches:
+      - master
     paths:
       - '**/Cargo.toml'
       - '**/Cargo.lock'
@@ -11,7 +14,5 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: taiki-e/install-action@cargo-deny
-      - name: Init cargo deny
-        run: cargo deny innit ~/deny.toml
       - name: Scan for vulnerabilities
         run: cargo deny check advisories
