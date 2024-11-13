@@ -18,6 +18,8 @@ pub struct Settings {
     pub application: ApplicationSettings,
 
     pub email_client: EmailClientSettings,
+
+    pub redis_uri: Secret<String>, // for sessions
 }
 
 // port listening on and host environemnt (docker image - production, or debug)

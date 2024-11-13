@@ -5,12 +5,13 @@ use actix_web::cookie::Key;
 use actix_web::{dev::Server, web, App, HttpServer};
 use actix_web_flash_messages::storage::CookieMessageStore;
 use actix_web_flash_messages::FlashMessagesFramework;
-use secrecy::ExposeSecret;
-use secrecy::Secret;
+use secrecy::{ExposeSecret, Secret};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
+use actix_session::SessionMiddleware;
+use actix_session::storage::RedisSessionStore;
 
 // A new type to hold the newly built server and its port
 pub struct Application {
@@ -18,7 +19,7 @@ pub struct Application {
     server: Server,
 }
 impl Application {
-    pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
+    pub async fn build(configuration: Settings) -> Result<Self, anyhow::Error> {
         // generate a connection to the database with the connection options
         // generated in configuration.rs
         // we use a pool of possible connections for concurrent queries
@@ -58,7 +59,8 @@ impl Application {
             email_client,
             configuration.application.base_url,
             configuration.application.hmac_secret,
-        )?;
+            configuration.redis_uri,
+        ).await?;
         Ok(Self { port, server })
     }
 
@@ -89,13 +91,14 @@ pub struct ApplicationBaseUrl(pub String);
 /// # Errors
 ///
 /// This function will return an error if the server fails to start.
-pub fn run(
+pub async fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
     hmac_secret: Secret<String>,
-) -> Result<Server, std::io::Error> {
+    redis_uri: Secret<String>,
+) -> Result<Server, anyhow::Error> {
     // argument TcpListener allows us to find the port that is assigned
     // to this server by the OS - only needed if you are using a random port (port 0)
 
@@ -113,8 +116,11 @@ pub fn run(
     // for signed cookies, we make a location to store cookies, and register a message framework
     // this is HMAC tagginging key - defined in config base.yaml
     let signing_key = Key::from(hmac_secret.expose_secret().as_bytes());
-    let message_store = CookieMessageStore::builder(signing_key).build();
+    let message_store = CookieMessageStore::builder(signing_key.clone()).build();
     let message_framework = FlashMessagesFramework::builder(message_store).build();
+
+    // similar store but for sessions:
+    let redis_store = RedisSessionStore::new(redis_uri.expose_secret()).await?;
 
     // create a server - this binds to socket and has options for
     // security etc, but needs an App to do something - passed in a closure
@@ -125,6 +131,7 @@ pub fn run(
             // register 'middleware'
             .wrap(TracingLogger::default()) //we wrap the App in a logger - we need an implementation of the Log Trait to receive - done in main!
             .wrap(message_framework.clone()) // for secure cookies
+            .wrap(SessionMiddleware::new(redis_store.clone(), signing_key.clone())) // for Sessions
             // define paths
             .route("/", web::get().to(routes::home))
             .route("/health_check", web::get().to(routes::health_check))

@@ -72,6 +72,9 @@ hex = "0.4" # convert HMAC tag back from hex string
 # HMAC tags for signing cookies
 actix-web-flash-messages = { version = "0.5", features = ["cookies"] }
 
+#sessions
+actix-session = { version = "0.10", features = ["redis-session-rustls"] }
+
 # http requests
 [dependencies.reqwest]
 version = "0.12"

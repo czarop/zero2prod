@@ -4,7 +4,7 @@ use zero2prod::telemetry;
 
 #[tokio::main] // a procedural macro that wraps synchronous main() in async fn -
                // otherwise async main not allowed, and this return type not allowed
-async fn main() -> Result<(), std::io::Error> {
+async fn main() -> anyhow::Result<()> {
     // set up trace and logging
     let subscriber = telemetry::get_subscriber("zero2prod".into(), "info".into(), std::io::stdout);
 
