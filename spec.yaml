@@ -73,3 +73,12 @@ databases:
     size: db-s-dev-database
 # Postgres version
     version: "14"
+# Redis db
+  - engine: REDIS
+    name: redis
+    version: "7"
+    production: false
+    size: db-s-dev-database
+    num_nodes: 1
+
+
