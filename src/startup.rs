@@ -1,6 +1,8 @@
 use crate::configuration::DatabaseSettings;
 use crate::configuration::Settings;
 use crate::{email_client::EmailClient, routes};
+use actix_session::storage::RedisSessionStore;
+use actix_session::SessionMiddleware;
 use actix_web::cookie::Key;
 use actix_web::{dev::Server, web, App, HttpServer};
 use actix_web_flash_messages::storage::CookieMessageStore;
@@ -10,8 +12,6 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
-use actix_session::SessionMiddleware;
-use actix_session::storage::RedisSessionStore;
 
 // A new type to hold the newly built server and its port
 pub struct Application {
@@ -60,7 +60,8 @@ impl Application {
             configuration.application.base_url,
             configuration.application.hmac_secret,
             configuration.redis_uri,
-        ).await?;
+        )
+        .await?;
         Ok(Self { port, server })
     }
 
@@ -131,12 +132,16 @@ pub async fn run(
             // register 'middleware'
             .wrap(TracingLogger::default()) //we wrap the App in a logger - we need an implementation of the Log Trait to receive - done in main!
             .wrap(message_framework.clone()) // for secure cookies
-            .wrap(SessionMiddleware::new(redis_store.clone(), signing_key.clone())) // for Sessions
+            .wrap(SessionMiddleware::new(
+                redis_store.clone(),
+                signing_key.clone(),
+            )) // for Sessions
             // define paths
             .route("/", web::get().to(routes::home))
             .route("/health_check", web::get().to(routes::health_check))
             .route("/login", web::get().to(routes::login_form))
             .route("/login", web::post().to(routes::login))
+            .route("/admin/dashboard", web::get().to(routes::admin_dashboard))
             .route("/subscriptions", web::post().to(routes::subscribe))
             .route("/subscriptions/confirm", web::get().to(routes::confirm))
             .route("/newsletters", web::post().to(routes::publish_newsletter))

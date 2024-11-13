@@ -23,7 +23,7 @@ serde = { version = "1", features = ["derive"] }
 # for working with configurations!
 config = "0.14"
 
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
 
 # log implementations
@@ -75,6 +75,8 @@ actix-web-flash-messages = { version = "0.5", features = ["cookies"] }
 #sessions
 actix-session = { version = "0.10", features = ["redis-session-rustls"] }
 
+serde_json = "1"
+
 # http requests
 [dependencies.reqwest]
 version = "0.12"
@@ -101,5 +103,4 @@ quickcheck = "1.0.3"
 quickcheck_macros = "1"
 tokio = { version = "1", features = ["rt", "macros"] }
 wiremock = "0.6"
-serde_json = "1"
 linkify = "0.10"

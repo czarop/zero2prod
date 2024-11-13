@@ -1,3 +1,7 @@
+for offline sqlx (ie db not available)
+make sure all queries are available through:
+cargo sqlx prepare --workspace -- --all-targets --all-features
+
 for windows to create the db locally:
 docker run --name postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres -N 1000
 docker exec -it "postgres" psql -U "postgres" -c "CREATE USER app WITH PASSWORD 'secret';"
@@ -54,3 +58,13 @@ doctl apps update $APP_ID --spec spec.yaml
 # hosted address
 # change app address below
 curl -i -X POST -H "Content-Type: application/x-www-form-urlencoded" -d 'name=Tom%20Slocombe&email=tgslocombe%40outlook.com' https://zero2prod-wl734.ondigitalocean.app/subscriptions --verbose
+
+Redis for production:
+Digital Ocean does not support the creation of a development Redis cluster via the spec.yaml file. You need
+to go through their dashboard to create a new Redis cluster. Make sure to select the datacenter where you
+deployed the application. Once the cluster has been created, you have to go through a quick “Get started”
+flow to configure a few knobs (trusted sources, eviction policy, etc.).
+At the end of the “Get started” flow you will be able to copy a connection string to your newly provisioned
+Redis instance. The connection string embeds a username and a password, therefore we must treat it as a
+secret. We will inject its value into the application using an environment value - set APP_REDIS_URI from the
+Settings panel in your application console.

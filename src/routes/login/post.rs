@@ -1,5 +1,6 @@
 use crate::authentication::{validate_credentials, AuthError, Credentials};
 use crate::routes::error_chain_fmt;
+use crate::session_state::TypedSession;
 use actix_web::error::InternalError;
 use actix_web::http::header::LOCATION;
 use actix_web::{web, HttpResponse};
@@ -15,12 +16,13 @@ pub struct FormData {
 }
 
 #[tracing::instrument(
-    skip(pool, form),
+    skip(pool, form, session),
     fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
 pub async fn login(
     form: web::Form<FormData>, // deserialised from httpresp
     pool: web::Data<PgPool>,
+    session: TypedSession, // the cookie-defined session - in our customn wrapper (see session_state)
 ) -> Result<HttpResponse, InternalError<LoginError>> {
     let credentials = Credentials {
         username: form.0.username, // form.0 as FormData wrapped in Form
@@ -33,9 +35,17 @@ pub async fn login(
     match validate_credentials(credentials, &pool).await {
         Ok(user_id) => {
             tracing::Span::current().record("user_id", tracing::field::display(&user_id));
-            // if so, re-route to home
+
+            // if so, start a 'session' - ie a cookie that means the user doesn't have to
+            // login again for a while.
+            session.renew();
+
+            session
+                .insert_user_id(user_id) // attach the userId to the 'session' - this will be checked in admin/dashboard
+                .map_err(|e| login_redirect(LoginError::UnexpectedError(e.into())))?;
+            // re-route to the admin dashboard
             Ok(HttpResponse::SeeOther()
-                .insert_header((LOCATION, "/"))
+                .insert_header((LOCATION, "/admin/dashboard"))
                 .finish())
         }
         // if error, propogate it with context
@@ -45,18 +55,23 @@ pub async fn login(
                 AuthError::UnexpectedError(_) => LoginError::UnexpectedError(e.into()),
             };
 
-            // the cookie is sent directly to the browser - we don't need to
-            // attach it to the request
-            // we set up the FlashMessage in Startup.rs
-            FlashMessage::error(e.to_string()).send();
-
-            let response = HttpResponse::SeeOther()
-                // re-route to login as GET
-                .insert_header((LOCATION, "/login"))
-                .finish();
-            Err(InternalError::from_response(e, response))
+            Err(login_redirect(e))
         }
     }
+}
+
+// failed to authenticate user
+fn login_redirect(error: LoginError) -> InternalError<LoginError> {
+    // the cookie is sent directly to the browser - we don't need to
+    // attach it to the request
+    // we set up the FlashMessage in Startup.rs
+    FlashMessage::error(error.to_string()).send();
+
+    let response = HttpResponse::SeeOther()
+        // re-route to login as GET
+        .insert_header((LOCATION, "/login"))
+        .finish();
+    InternalError::from_response(error, response)
 }
 
 #[derive(thiserror::Error)]
