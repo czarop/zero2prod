@@ -1,3 +1,4 @@
+use crate::utils::e500;
 use actix_web::http::header::LOCATION;
 use actix_web::{http::header::ContentType, web, HttpResponse};
 use anyhow::Context;
@@ -30,22 +31,18 @@ pub async fn admin_dashboard(
             r#"<!DOCTYPE html>
         <html lang="en">
         <head>
-        <meta http-equiv="content-type" content="text/html; charset=utf-8">
-        <title>Admin dashboard</title>
+            <meta http-equiv="content-type" content="text/html; charset=utf-8">
+            <title>Admin dashboard</title>
         </head>
         <body>
-        <p>Welcome {username}!</p>
+            <p>Welcome {username}!</p>
+            <p>Available actions:</p>
+            <ol>
+                <li><a href="/admin/password">Change password</a></li>
+            </ol>
         </body>
         </html>"#
         )))
-}
-
-// take a generic, displayable error
-fn e500<T>(e: T) -> actix_web::Error
-where
-    T: std::fmt::Debug + std::fmt::Display + 'static,
-{
-    actix_web::error::ErrorInternalServerError(e)
 }
 
 // Interrogate the redis db for a Session associated with user_id x
