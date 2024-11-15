@@ -1,9 +1,13 @@
+use crate::authentication;
+use crate::authentication::AuthError;
+use crate::routes::admin::dashboard;
 use crate::session_state::TypedSession;
 use crate::utils::{e500, see_other};
 use actix_web::{web, HttpResponse};
 use actix_web_flash_messages::FlashMessage;
 use secrecy::ExposeSecret;
 use secrecy::Secret;
+use sqlx::PgPool;
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -15,11 +19,17 @@ pub struct FormData {
 pub async fn change_password(
     form: web::Form<FormData>,
     session: TypedSession,
+    pool: web::Data<PgPool>, // we need the postgres db and the session
 ) -> Result<HttpResponse, actix_web::Error> {
     // if no active session, back to login page
-    if session.get_user_id().map_err(e500)?.is_none() {
+    let user_id = session.get_user_id().map_err(e500)?;
+    // No active session for this user... reroute to login
+    if user_id.is_none() {
         return Ok(see_other("/login"));
     };
+
+    // we now have the user_id - not the username
+    let user_id = user_id.unwrap();
 
     // check the two passwords match
     // `Secret<String>` does not implement `Eq`,
@@ -34,5 +44,39 @@ pub async fn change_password(
         // returnt hem to admin/password with a GET request
         return Ok(see_other("/admin/password"));
     }
-    todo!()
+
+    // check password is correct length
+    if !(12..=129).contains(&form.new_password.expose_secret().len()) {
+        FlashMessage::error("The new password must be between 12 & 129 characters.").send();
+        return Ok(see_other("/admin/password"));
+    };
+
+    // gets the username from a user_id from postgres db
+    let username = dashboard::get_username(user_id, &pool)
+        .await
+        .map_err(e500)?;
+
+    let credentials = authentication::Credentials {
+        username,
+        password: form.0.current_password,
+    };
+
+    // check the current password is correct
+    if let Err(e) = authentication::validate_credentials(credentials, &pool).await {
+        return match e {
+            // wrong password - send a flash message and redirect to GET
+            AuthError::InvalidCredentials(_) => {
+                FlashMessage::error("The current password is incorrect.").send();
+                Ok(see_other("/admin/password"))
+            }
+            // smth went wrong
+            AuthError::UnexpectedError(_) => Err(e500(e).into()),
+        };
+    }
+
+    crate::authentication::change_password(user_id, form.0.new_password, &pool)
+        .await
+        .map_err(e500)?;
+    FlashMessage::info("Your password has been changed.").send();
+    Ok(see_other("/admin/password"))
 }

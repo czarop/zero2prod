@@ -1,6 +1,6 @@
 use actix_web::http::header::ContentType;
 use actix_web::HttpResponse;
-use actix_web_flash_messages::{IncomingFlashMessages, Level};
+use actix_web_flash_messages::IncomingFlashMessages;
 use std::fmt::Write;
 
 // this is called when you navigate to /login but also
@@ -14,9 +14,8 @@ pub async fn login_form(flash_messages: IncomingFlashMessages) -> HttpResponse {
     // A message will be there if we are redirected
     // from a failed login POST request - there may be multiple messages of course!
     // look for Error level messages only
-    for message in flash_messages
-        .iter()
-        .filter(|message| message.level() == Level::Error)
+    for message in flash_messages.iter()
+    // .filter(|message| message.level() == Level::Error)
     {
         writeln!(error_html, "<p><i>{}</i></p>", message.content()).unwrap();
     }

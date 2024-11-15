@@ -18,7 +18,6 @@ pub async fn change_password_form(
     }
 
     for m in flash_messages.iter() {
-        println!("{}", m.content());
         writeln!(msg_html, "<p><i>{}</i></p>", m.content()).unwrap();
     }
 

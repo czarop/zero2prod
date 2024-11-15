@@ -150,6 +150,7 @@ pub async fn run(
             .route("/subscriptions", web::post().to(routes::subscribe))
             .route("/subscriptions/confirm", web::get().to(routes::confirm))
             .route("/newsletters", web::post().to(routes::publish_newsletter))
+            .route("/admin/logout", web::post().to(routes::log_out))
             // define 'application state' - data that will be passed with the request and
             // accessible by having an argument web::Data<type> on your route receiver function
             // note you can only have one of each type of these - if need more
