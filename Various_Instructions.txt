@@ -2,7 +2,7 @@ for offline sqlx (ie db not available)
 make sure all queries are available through:
 cargo sqlx prepare --workspace -- --all-targets --all-features
 
-for windows to create the db locally:
+for windows to create the postgres db locally:
 docker run --name postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres -N 1000
 docker exec -it "postgres" psql -U "postgres" -c "CREATE USER app WITH PASSWORD 'secret';"
 docker exec -it "postgres" psql -U "postgres" -c "ALTER USER app CREATEDB;"
@@ -10,14 +10,21 @@ set postgres://app:secret@localhost:5432/newsletter
 sqlx database create
 sqlx migrate run
 
+for windows redis:
+docker run -d --name redis_15NOV2024 -p 6379:6379 redis/redis-stack-server:latest
+sqlx migrate run
 
-local
+
+for linux postgres:
 # db migration - if already exists run with:
 SKIP_DOCKER=true ./scripts/init_db.sh
 
 # else-
 # to generate the db enter to terminal: 
 ./scripts/init_db.sh
+
+for linux redis:
+./scripts/init_redis.sh
 
 # you may need to do the following - this will stop and remove the old db: 
 # docker stop NAME
