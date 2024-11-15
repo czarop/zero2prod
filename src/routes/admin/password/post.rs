@@ -1,7 +1,7 @@
 use crate::authentication;
 use crate::authentication::AuthError;
+use crate::authentication::UserId;
 use crate::routes::admin::dashboard;
-use crate::session_state::TypedSession;
 use crate::utils::{e500, see_other};
 use actix_web::{web, HttpResponse};
 use actix_web_flash_messages::FlashMessage;
@@ -18,18 +18,13 @@ pub struct FormData {
 
 pub async fn change_password(
     form: web::Form<FormData>,
-    session: TypedSession,
-    pool: web::Data<PgPool>, // we need the postgres db and the session
+    pool: web::Data<PgPool>,       // we need the postgres db and the session
+    user_id: web::ReqData<UserId>, // this is attached in authentication::password
 ) -> Result<HttpResponse, actix_web::Error> {
     // if no active session, back to login page
-    let user_id = session.get_user_id().map_err(e500)?;
-    // No active session for this user... reroute to login
-    if user_id.is_none() {
-        return Ok(see_other("/login"));
-    };
+    let user_id = user_id.into_inner();
 
     // we now have the user_id - not the username
-    let user_id = user_id.unwrap();
 
     // check the two passwords match
     // `Secret<String>` does not implement `Eq`,
@@ -52,7 +47,7 @@ pub async fn change_password(
     };
 
     // gets the username from a user_id from postgres db
-    let username = dashboard::get_username(user_id, &pool)
+    let username = dashboard::get_username(*user_id, &pool)
         .await
         .map_err(e500)?;
 
@@ -74,7 +69,7 @@ pub async fn change_password(
         };
     }
 
-    crate::authentication::change_password(user_id, form.0.new_password, &pool)
+    crate::authentication::change_password(*user_id, form.0.new_password, &pool)
         .await
         .map_err(e500)?;
     FlashMessage::info("Your password has been changed.").send();

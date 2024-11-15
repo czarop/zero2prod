@@ -1,9 +1,11 @@
+use crate::authentication;
 use crate::configuration::DatabaseSettings;
 use crate::configuration::Settings;
 use crate::{email_client::EmailClient, routes};
 use actix_session::storage::RedisSessionStore;
 use actix_session::SessionMiddleware;
 use actix_web::cookie::Key;
+use actix_web::middleware;
 use actix_web::{dev::Server, web, App, HttpServer};
 use actix_web_flash_messages::storage::CookieMessageStore;
 use actix_web_flash_messages::FlashMessagesFramework;
@@ -141,16 +143,20 @@ pub async fn run(
             .route("/health_check", web::get().to(routes::health_check))
             .route("/login", web::get().to(routes::login_form))
             .route("/login", web::post().to(routes::login))
-            .route("/admin/dashboard", web::get().to(routes::admin_dashboard))
-            .route(
-                "/admin/password",
-                web::get().to(routes::change_password_form),
-            )
-            .route("/admin/password", web::post().to(routes::change_password))
             .route("/subscriptions", web::post().to(routes::subscribe))
             .route("/subscriptions/confirm", web::get().to(routes::confirm))
             .route("/newsletters", web::post().to(routes::publish_newsletter))
-            .route("/admin/logout", web::post().to(routes::log_out))
+            // group the /admin routes into a scope - and we will add a middleware just to them
+            .service(
+                web::scope("/admin")
+                    // the middleware
+                    .wrap(middleware::from_fn(authentication::reject_anonymous_users))
+                    // the routes to wrap
+                    .route("/dashboard", web::get().to(routes::admin_dashboard))
+                    .route("/password", web::get().to(routes::change_password_form))
+                    .route("/password", web::post().to(routes::change_password))
+                    .route("/logout", web::post().to(routes::log_out)),
+            )
             // define 'application state' - data that will be passed with the request and
             // accessible by having an argument web::Data<type> on your route receiver function
             // note you can only have one of each type of these - if need more
