@@ -1,0 +1,42 @@
+In main, a postgres database is created. Specifically, we use a
+PgPool - which is a pool of pointers to the db, allowing for async operations.
+This is accessed around the app using the server's application state (see below).
+We have a number of config.yaml files - these are deserialised into structs.
+Base.yaml is always used, but then either production.yaml or local.yaml supplement
+with different data depeneding on whether the app is run locally or hosted on the cloud.
+If cloud based, a number of environment variables, specified in spec.yaml (used as
+a template to make the app on digital ocean), are injected into the app on creation,
+including things like it's web address. These are prefixed by App_ and parsed into config structs.
+Main also starts an actix web server:
+
+The server is started in startup - 
+this defines all the routes for incoming requests
+It adds data to the 'application state' - which is passed along with
+the requests to the handler methods. These are accessed through serde
+deserialisation in the handler methods.
+It also wraps everything in middleware - such as a tracing span,
+which can be accessed from elsewhere in the app using the tracing::instrument
+decorator above functions. Note that by default this adds all parameters to 
+the log, so you can choose to not record info about some.
+See various places in the app where the tracing span is accessed and additional
+information recorded.
+
+Production version
+
+Docker image
+In production, the app runs in a docker image. Note this is completely different to the
+Docker image used to host the postgres database.
+The dockerfile and .docker_ignore file are key for producing the app in a docker image. 
+The docker file uses cargo chef - which tracks chages and only updates
+things that have changed.
+Importantly, there are some details in the docker file that would
+need changing on a per app basis.
+
+
+
+
+idempotency:
+The app attempts to implement idempotency for dealing with repeat requests (for example
+duplicate requests to send out emails). The request is tagged with a random idempotency key
+and these are stored, albeit temporarily, in a postgres table, along with user_id and the 
+request itself. 

@@ -9,6 +9,7 @@
 <body>
     {msg_html}
     <form action="/admin/newsletter" method="post">
+        <input hidden type="text" name="idempotency_key" value="{idempotency_key}">
         <h3>Newsletter Title:</h3>
         <input
             type="text"

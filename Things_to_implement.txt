@@ -1,1 +1,3 @@
 when fails to send confrmation email, still adding to the database as pending - should fail
+
+Add unsubscribe link to each email - and implement authentication and removal from db

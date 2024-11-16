@@ -2,6 +2,7 @@ use actix_web::http::header::LOCATION;
 use actix_web::HttpResponse;
 use regex::Regex;
 use std::collections::HashMap;
+// use actix_web::http::StatusCode;
 
 // take a generic, displayable error
 // Return an opaque 500 while preserving the error root's cause for logging.
@@ -10,6 +11,13 @@ where
     T: std::fmt::Debug + std::fmt::Display + 'static,
 {
     actix_web::error::ErrorInternalServerError(e)
+}
+
+pub fn e400<T>(e: T) -> actix_web::Error
+where
+    T: std::fmt::Debug + std::fmt::Display + 'static,
+{
+    actix_web::error::ErrorBadRequest(e)
 }
 
 // quick convenience to add location headers to a see other response

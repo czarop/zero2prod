@@ -82,19 +82,6 @@ impl TestApp {
         ConfirmationLinks { html, plain_text }
     }
 
-    // pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
-    //     let username = &self.test_user.username;
-    //     let password = &self.test_user.password;
-
-    //     self.api_client
-    //         .post(&format!("{}/admin/newsletters", &self.address))
-    //         .basic_auth(username, Some(password))
-    //         .json(&body)
-    //         .send()
-    //         .await
-    //         .expect("Failed to execute request.")
-    // }
-
     // body is a generic type that can be deserialised
     pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
     where
