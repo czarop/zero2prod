@@ -73,14 +73,6 @@ impl EmailClient {
         // this is firing to https://api.postmarkapp.com/email
         let url = format!("{}/email", self.base_url);
 
-        println!(
-            "{}\n {}\n {}",
-            url.as_str(),
-            self.sender.as_ref(),
-            self.auth_token.expose_secret().as_str()
-        );
-        println!("{}\n {}", recipient.as_ref(), html_content);
-
         let request_body = SendEmailRequest {
             from: self.sender.as_ref(), // we could put these as 'to_owned' and have them as Strings
             to: recipient.as_ref(),
@@ -144,8 +136,6 @@ mod tests {
         let mock_server = wiremock::MockServer::start().await; // this is a real server run on a thread!
                                                                // make an email client
         let address = mock_server.uri(); // the address the server is running on
-
-        println!("{}", &address);
 
         let email_client = email_client(address);
 

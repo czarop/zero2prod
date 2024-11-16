@@ -145,7 +145,6 @@ pub async fn run(
             .route("/login", web::post().to(routes::login))
             .route("/subscriptions", web::post().to(routes::subscribe))
             .route("/subscriptions/confirm", web::get().to(routes::confirm))
-            .route("/newsletters", web::post().to(routes::publish_newsletter))
             // group the /admin routes into a scope - and we will add a middleware just to them
             .service(
                 web::scope("/admin")
@@ -155,7 +154,9 @@ pub async fn run(
                     .route("/dashboard", web::get().to(routes::admin_dashboard))
                     .route("/password", web::get().to(routes::change_password_form))
                     .route("/password", web::post().to(routes::change_password))
-                    .route("/logout", web::post().to(routes::log_out)),
+                    .route("/logout", web::post().to(routes::log_out))
+                    .route("/newsletter", web::get().to(routes::send_newsletter_form))
+                    .route("/newsletter", web::post().to(routes::send_newsletter)),
             )
             // define 'application state' - data that will be passed with the request and
             // accessible by having an argument web::Data<type> on your route receiver function

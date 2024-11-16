@@ -82,18 +82,18 @@ impl TestApp {
         ConfirmationLinks { html, plain_text }
     }
 
-    pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
-        let username = &self.test_user.username;
-        let password = &self.test_user.password;
+    // pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
+    //     let username = &self.test_user.username;
+    //     let password = &self.test_user.password;
 
-        self.api_client
-            .post(&format!("{}/newsletters", &self.address))
-            .basic_auth(username, Some(password))
-            .json(&body)
-            .send()
-            .await
-            .expect("Failed to execute request.")
-    }
+    //     self.api_client
+    //         .post(&format!("{}/admin/newsletters", &self.address))
+    //         .basic_auth(username, Some(password))
+    //         .json(&body)
+    //         .send()
+    //         .await
+    //         .expect("Failed to execute request.")
+    // }
 
     // body is a generic type that can be deserialised
     pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
@@ -162,6 +162,30 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+
+    pub async fn post_publish_newsletter<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(&format!("{}/admin/newsletter", &self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+
+    pub async fn get_publish_newsletter(&self) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/admin/newsletter", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+
+    pub async fn get_publish_newsletter_html(&self) -> String {
+        self.get_publish_newsletter().await.text().await.unwrap()
+    }
 }
 
 // a fake user of the API
@@ -207,6 +231,14 @@ impl TestUser {
         .execute(pool)
         .await
         .expect("Failed to store test user.");
+    }
+
+    pub async fn login(&self, app: &TestApp) {
+        app.post_login(&serde_json::json!({
+            "username": &self.username,
+            "password": &self.password
+        }))
+        .await;
     }
 }
 
