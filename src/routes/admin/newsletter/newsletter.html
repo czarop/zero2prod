@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>Send a Newsletter</title>
+    <link rel="stylesheet" href="style.css">
+    
+</head>
+<body>
+    {msg_html}
+    <form action="/admin/newsletter" method="post">
+        <h3>Newsletter Title:</h3>
+        <input
+            type="text"
+            style="width:100%;font-family:Courier"
+            placeholder="Enter a title"
+            name="title"
+        >
+    <br><br>
+    <h3>Email Content as Plain Text:</h3>
+    <textarea
+        size="200"
+        style="width:100%;height:500px;resize: none"
+        placeholder="Enter content"
+        name="text_content"
+    ></textarea>
+    </label>
+    <br><br>
+    <h3>Email Content as HTML:</h3>
+    <textarea
+        size="200"
+        style="width:100%;height:500px;resize: none"
+        placeholder="Enter content"
+        name="html_content"
+    ></textarea>
+    </label>
+        <br><br>
+        <button type="submit">Send Newsletter</button>
+    </form>
+    <p><a href="/admin/dashboard">&lt;- Back</a></p>
+</body>
+</html>

@@ -140,6 +140,7 @@ pub async fn run(
             )) // for Sessions
             // define paths
             .route("/", web::get().to(routes::home))
+            // .route("/", web::post().to(routes::home_post))
             .route("/health_check", web::get().to(routes::health_check))
             .route("/login", web::get().to(routes::login_form))
             .route("/login", web::post().to(routes::login))

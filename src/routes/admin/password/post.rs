@@ -65,7 +65,7 @@ pub async fn change_password(
                 Ok(see_other("/admin/password"))
             }
             // smth went wrong
-            AuthError::UnexpectedError(_) => Err(e500(e).into()),
+            AuthError::UnexpectedError(_) => Err(e500(e)),
         };
     }
 

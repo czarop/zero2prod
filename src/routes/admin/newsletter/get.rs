@@ -1,8 +1,9 @@
 use crate::session_state::TypedSession;
-use crate::utils::{e500, see_other};
+use crate::utils::{e500, populate_dynamic_html_fields, see_other};
 use actix_web::http::header::ContentType;
 use actix_web::HttpResponse;
 use actix_web_flash_messages::IncomingFlashMessages;
+use std::collections::HashMap;
 use std::fmt::Write;
 
 pub async fn send_newsletter_form(
@@ -22,69 +23,83 @@ pub async fn send_newsletter_form(
         writeln!(msg_html, "<p><i>{}</i></p>", m.content()).unwrap();
     }
 
+    // Read the HTML file into a string
+    let html_page = include_str!("newsletter.html");
+
+    // make a dict of the dynamic content
+    let mut dynamic_fields = HashMap::<&str, &str>::new();
+    dynamic_fields.insert("msg_html", &msg_html);
+
+    // add the dynamic content
+    let populated_html = populate_dynamic_html_fields(dynamic_fields, html_page);
+
     Ok(HttpResponse::Ok()
         .content_type(ContentType::html())
-        .body(format!(
-            r#"<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta http-equiv="content-type" content="text/html; charset=utf-8">
-    <title>Send a Newsletter</title>
-    <style>
-    /* Reset default styling */
-    body {{
-      margin: 0;
-      padding: 10px; /* Add some padding around the body for aesthetics */
-      box-sizing: border-box;
-        }}
+        .body(populated_html))
 
-    input, textarea {{
-      width: 100%; /* Full width of the container */
-      max-width: 100%; /* Prevent overflow */
-      box-sizing: border-box; /* Include padding in width calculation */
-      margin: 0; /* Reset default margins */
-      padding: 8px; /* Add some padding for usability */
-      font-size: 16px; /* Ensure text consistency */
-        }}
+    //     Ok(HttpResponse::Ok()
+    //         .content_type(ContentType::html())
+    //         .body(format!(
+    //             r#"<!DOCTYPE html>
+    // <html lang="en">
+    // <head>
+    //     <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    //     <title>Send a Newsletter</title>
+    //     <style>
+    //     /* Reset default styling */
+    //     body {{
+    //       margin: 0;
+    //       padding: 10px; /* Add some padding around the body for aesthetics */
+    //       box-sizing: border-box;
+    //         }}
 
-    textarea {{
-      resize: none; /* Optional: Disable resizing for consistent design */
-        }}
-  </style>
-</head>
-<body>
-    {msg_html}
-    <form action="/admin/newsletter" method="post">
-        <h3>Newsletter Title:</h3>
-        <input
-            type="text"
-            style="width:100%;font-family:Courier"
-            placeholder="Enter a title"
-            name="title"
-        >
-    <br><br>
-    <h3>Email Content as Plain Text:</h3>
-    <textarea
-        size="200"
-        style="width:100%;height:500px;resize: none"
-        placeholder="Enter content"
-        name="text_content"
-    ></textarea>
-    </label>
-    <br><br>
-    <h3>Email Content as HTML:</h3>
-    <textarea
-        size="200"
-        style="width:100%;height:500px;resize: none"
-        placeholder="Enter content"
-        name="html_content"
-    ></textarea>
-    </label>
-        <br><br>
-        <button type="submit">Send Newsletter</button>
-    </form>
-    <p><a href="/admin/dashboard">&lt;- Back</a></p>
-</body>
-</html>"#,
-        )))
+    //     input, textarea {{
+    //       width: 100%; /* Full width of the container */
+    //       max-width: 100%; /* Prevent overflow */
+    //       box-sizing: border-box; /* Include padding in width calculation */
+    //       margin: 0; /* Reset default margins */
+    //       padding: 8px; /* Add some padding for usability */
+    //       font-size: 16px; /* Ensure text consistency */
+    //         }}
+
+    //     textarea {{
+    //       resize: none; /* Optional: Disable resizing for consistent design */
+    //         }}
+    //   </style>
+    // </head>
+    // <body>
+    //     {msg_html}
+    //     <form action="/admin/newsletter" method="post">
+    //         <h3>Newsletter Title:</h3>
+    //         <input
+    //             type="text"
+    //             style="width:100%;font-family:Courier"
+    //             placeholder="Enter a title"
+    //             name="title"
+    //         >
+    //     <br><br>
+    //     <h3>Email Content as Plain Text:</h3>
+    //     <textarea
+    //         size="200"
+    //         style="width:100%;height:500px;resize: none"
+    //         placeholder="Enter content"
+    //         name="text_content"
+    //     ></textarea>
+    //     </label>
+    //     <br><br>
+    //     <h3>Email Content as HTML:</h3>
+    //     <textarea
+    //         size="200"
+    //         style="width:100%;height:500px;resize: none"
+    //         placeholder="Enter content"
+    //         name="html_content"
+    //     ></textarea>
+    //     </label>
+    //         <br><br>
+    //         <button type="submit">Send Newsletter</button>
+    //     </form>
+    //     <p><a href="/admin/dashboard">&lt;- Back</a></p>
+    // </body>
+    // </html>"#,
+    //         )))
 }
