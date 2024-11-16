@@ -25,7 +25,7 @@ async fn logout_clears_session_state() {
     assert!(html_page.contains(&format!("Welcome {}", app.test_user.username)));
     // Act - Part 3 - Logout
     let response = app.post_logout().await;
-    assert_is_redirect_to(&response, "/login");
+    assert_is_redirect_to(&response, "/");
     // Act - Part 4 - Follow the redirect
     let html_page = app.get_login_html().await;
     assert!(html_page.contains(r#"<p><i>You have successfully logged out.</i></p>"#));

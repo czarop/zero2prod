@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use actix_web::http::header::LOCATION;
 use actix_web::HttpResponse;
 use regex::Regex;
+use std::collections::HashMap;
 
 // take a generic, displayable error
 // Return an opaque 500 while preserving the error root's cause for logging.
