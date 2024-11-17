@@ -6,6 +6,8 @@ use std::sync::LazyLock;
 use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::configuration;
+use zero2prod::email_client::EmailClient;
+use zero2prod::issue_delivery_worker::{try_execute_task, ExecutionOutcome};
 use zero2prod::startup;
 use zero2prod::{startup::get_connection_pool, telemetry};
 
@@ -34,6 +36,7 @@ pub struct TestApp {
     pub port: u16,                // we store the port of the app locally for testing purposes
     pub test_user: TestUser,
     pub api_client: reqwest::Client, // the http request client
+    pub email_client: EmailClient,
 }
 
 impl TestApp {
@@ -45,6 +48,19 @@ impl TestApp {
             .send()
             .await
             .expect("Failed to execute request.")
+    }
+
+    // send all emails in the queue
+    pub async fn dispatch_all_pending_emails(&self) {
+        loop {
+            if let ExecutionOutcome::EmptyQueue =
+                try_execute_task(&self.db_pool, &self.email_client)
+                    .await
+                    .unwrap()
+            {
+                break;
+            }
+        }
     }
 
     ///Extract the confirmation links from the email body
@@ -285,6 +301,7 @@ pub async fn spawn_app() -> TestApp {
         port: application_port,
         test_user: TestUser::generate(),
         api_client: client,
+        email_client: configuration.email_client.client(),
     };
 
     // add a fake user_id and password to the users db

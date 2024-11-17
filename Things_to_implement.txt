@@ -1,3 +1,11 @@
 when fails to send confrmation email, still adding to the database as pending - should fail
 
 Add unsubscribe link to each email - and implement authentication and removal from db
+
+when failing to send an email does not retry, to fix this:
+enhance issue_delivery_queue table - e.g. adding a n_retries and execute_after
+columns to keep track of how many attempts have already taken place and how long we should wait before
+trying again
+
+there is no expiry mechanism for our idempotency keys. Try designing one
+as an exercise, using what we learned on background workers as a reference

@@ -27,20 +27,7 @@ impl Application {
         // we use a pool of possible connections for concurrent queries
         let connection_pool = get_connection_pool(&configuration.database);
 
-        // get the sender email address from config
-        let sender_email = configuration
-            .email_client
-            .sender()
-            .expect("Invalid sender address.");
-
-        let timeout = configuration.email_client.timeout();
-        // build the client
-        let email_client = EmailClient::new(
-            configuration.email_client.base_url,
-            sender_email,
-            configuration.email_client.auth_token,
-            timeout,
-        );
+        let email_client = configuration.email_client.client();
 
         // set the address an port from config file
         let address = format!(
