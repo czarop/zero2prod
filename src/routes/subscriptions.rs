@@ -146,8 +146,6 @@ pub async fn subscribe(
     // with email_client and PgPool in the Run fn in Startup.rs
     base_url: web::Data<ApplicationBaseUrl>, // address for the confirmation email
 ) -> Result<HttpResponse, SubscribeError> {
-    println!("{}", form.email);
-
     // web::form is a wrapper around FormData (Form<FormData>) -
     // access the formdata by form.0
     let new_subscriber = form.0.try_into().map_err(SubscribeError::ValidationError)?;
@@ -173,22 +171,49 @@ pub async fn subscribe(
         .await
         .context("Failed to store the confirmation token for a new subscriber.")?;
 
-    // commit the transaction - ie make changes to the db permanent
-    transaction
-        .commit()
-        .await
-        .context("Failed to commit SQL transaction to store a new subscriber.")?;
-
-    send_confirmation_email(
+    // try to send out the email
+    match send_confirmation_email(
         &email_client,
         new_subscriber,
         &base_url.0,
         &subscription_token,
     )
     .await
-    .context("Failed to send a confirmation email.")?;
+    .context("Failed to send a confirmation email, please retry.")
+    {
+        Ok(_) => {
+            // commit the transaction - ie make changes to the db permanent
+            transaction
+                .commit()
+                .await
+                .context("Failed to commit SQL transaction to store a new subscriber.")?;
+            return Ok(HttpResponse::Ok().finish());
+        }
+        Err(e) => {
+            // if the confirmation email failed to send, roll back the transaction and return an error
+            transaction
+                .rollback()
+                .await
+                .context("Failed to roll back the database after error sending out confirmation email to new subscriber.")?;
+            return Err(e.into());
+        }
+    }
 
-    Ok(HttpResponse::Ok().finish())
+    // transaction
+    //     .commit()
+    //     .await
+    //     .context("Failed to commit SQL transaction to store a new subscriber.")?;
+
+    // send_confirmation_email(
+    //     &email_client,
+    //     new_subscriber,
+    //     &base_url.0,
+    //     &subscription_token,
+    // )
+    // .await
+    // .context("Failed to send a confirmation email.")?;
+
+    // Ok(HttpResponse::Ok().finish())
 }
 
 #[tracing::instrument(

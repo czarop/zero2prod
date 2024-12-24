@@ -15,16 +15,16 @@ name = "zero2prod"
 
 [dependencies]
 actix-web = "4"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "^1", features = ["macros", "rt-multi-thread"] }
 
 # Macro that allows extracting of form data from http POST requests
-serde = { version = "1", features = ["derive"] }
+serde = { version = "^1", features = ["derive"] }
 
 # for working with configurations!
-config = "0.14"
+config = "^0.15"
 
 uuid = { version = "1", features = ["v4", "serde"] }
-chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
+chrono = { version = "^0.4.22", default-features = false, features = ["clock"] }
 
 # log implementations
 #env_logger = "0.9"
@@ -37,10 +37,10 @@ tracing-bunyan-formatter = "0.3"
 tracing-log = "0.2"
 
 # hide certain strings from the log
-secrecy = { version = "0.8", features = ["serde"] }
+secrecy = { version = "^0.8", features = ["serde"] }
 
 # get logging info from actix_web::Logger
-tracing-actix-web = "0.7"
+tracing-actix-web = "^0.7"
 
 #deserialise numbers etc (ie non strings)
 serde-aux = "4"
@@ -48,26 +48,26 @@ serde-aux = "4"
 unicode-segmentation = "1"
 
 # email validation
-validator = "0.18"
+validator = "0.19"
 
 rand = { version = "0.8", features = ["std_rng"] }
 
 # error boilerplate generator
-thiserror = "1"
-anyhow = "1"
+thiserror = "^2"
+anyhow = "^1"
 
 # credentials
 base64 = "0.22"
-sha3="0.9"
+sha3 = "^0.9"
 argon2 = { version = "0.5", features = ["std"] }
 
-urlencoding = "2"
+urlencoding = "^2"
 htmlescape = "0.3" # encode html
 
 # for HMAC verification of http query source/integrity
 hmac = { version = "0.12", features = ["std"] }
 sha2 = "0.10"
-hex = "0.4" # convert HMAC tag back from hex string
+hex = "0.4"                                     # convert HMAC tag back from hex string
 
 # HMAC tags for signing cookies
 actix-web-flash-messages = { version = "0.5", features = ["cookies"] }
@@ -90,12 +90,12 @@ features = ["json", "rustls-tls", "cookies"]
 version = "0.8"
 default-features = false
 features = [
-"runtime-tokio-rustls", # use tokio for futures
-"macros", # very useful!
-"postgres", # unlocks postgres specific functionality
-"uuid", # uuid integration
-"chrono", # timestampz integration
-"migrate" # migrate like with sqlx-CLI
+    "runtime-tokio-rustls", # use tokio for futures
+    "macros",               # very useful!
+    "postgres",             # unlocks postgres specific functionality
+    "uuid",                 # uuid integration
+    "chrono",               # timestampz integration
+    "migrate",              # migrate like with sqlx-CLI
 ]
 
 # for dependencies required for tests only
